@@ -32,6 +32,8 @@ Thumbs.db
 *.jpg
 *.jpeg
 !examples/*.png
+screenshots/
+!screenshots/.gitkeep
 
 # Logs
 *.log

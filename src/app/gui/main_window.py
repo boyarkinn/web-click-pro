@@ -4,6 +4,7 @@
 
 import sys
 import os
+import time
 
 # Пробуем использовать CustomTkinter (современный вид)
 try:
@@ -16,6 +17,8 @@ except ImportError:
 
 # Импорт кликера
 from app.core.clicker import WebClicker
+# Импорт чата
+from app.gui.chat_window import ChatWindow
 
 
 class MainWindow:
@@ -25,6 +28,8 @@ class MainWindow:
         """Инициализация главного окна"""
         # Инициализация кликера
         self.clicker = None
+        # Окно чата
+        self.chat_window = None
         
         if USE_CUSTOM_TKINTER:
             # Настройка CustomTkinter
@@ -247,6 +252,27 @@ class MainWindow:
             # Открытие сайта
             if self.clicker.open_url(url):
                 self._update_status(f"Сайт открыт: {url}", success=True)
+                
+                # Ждем загрузки страницы
+                self.clicker.wait(2)
+                
+                # Создаем скриншот
+                screenshots_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "..", "screenshots")
+                screenshots_dir = os.path.abspath(screenshots_dir)
+                os.makedirs(screenshots_dir, exist_ok=True)
+                screenshot_path = os.path.join(screenshots_dir, f"screenshot_{int(time.time())}.png")
+                
+                if self.clicker.take_screenshot(screenshot_path):
+                    # Создаем или показываем окно чата
+                    if not self.chat_window:
+                        self.chat_window = ChatWindow(self.root)
+                    
+                    self.chat_window.show()
+                    
+                    # Анализируем сайт через GPT
+                    self._update_status("Анализ сайта через GPT...")
+                    self.chat_window.analyze_website(screenshot_path, url)
+                    self._update_status("Анализ завершен", success=True)
             else:
                 self._update_status("Ошибка при открытии сайта", error=True)
             
