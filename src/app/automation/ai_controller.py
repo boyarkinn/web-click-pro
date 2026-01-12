@@ -10,32 +10,42 @@ from .commands import ActionType
 from .validator import CommandValidator
 from .executor import CommandExecutor
 from ..core.clicker import WebClicker
-from ..api.client import APIClient
+
+# Импорт локального LLM клиента
+try:
+    from ..ai.local_llm_client import LocalLLMClient
+    LOCAL_LLM_AVAILABLE = True
+except ImportError:
+    LOCAL_LLM_AVAILABLE = False
+    LocalLLMClient = None
 
 
 class AIController:
-    """Контроллер для работы с ИИ и выполнения команд"""
+    """Контроллер для работы с локальным ИИ и выполнения команд"""
     
-    def __init__(self, clicker: WebClicker, api_client: APIClient):
+    def __init__(self, clicker: WebClicker, llm_client: LocalLLMClient):
         """
         Инициализация контроллера
         
         Args:
             clicker: Экземпляр WebClicker
-            api_client: Клиент для работы с API на Railway
+            llm_client: Локальный LLM клиент (обязательно)
         """
+        if not llm_client:
+            raise ValueError("Локальный LLM клиент обязателен для работы автоматизации")
+        
         self.clicker = clicker
-        self.api_client = api_client
+        self.llm_client = llm_client
         self.executor = CommandExecutor(clicker)
         self.validator = CommandValidator()
-        self.context_needed = True  # Нужен ли контекст страницы для следующей команды
+        self.last_url = None  # URL последней страницы для отслеживания изменений
     
     def get_page_context(self) -> str:
         """
-        Получение контекста текущей страницы
+        Получение контекста текущей страницы в текстовом формате для ИИ
         
         Returns:
-            Строка с описанием страницы для ИИ
+            Строка с детальным описанием страницы для ИИ
         """
         if not self.clicker.driver:
             return "Браузер не запущен"
@@ -43,18 +53,93 @@ class AIController:
         try:
             content = self.clicker.read_page_content()
             
-            context = f"""Текущая страница:
-URL: {content.get('url', 'Неизвестно')}
-Заголовок: {content.get('title', 'Неизвестно')}
-
-Доступные элементы:
-- Кнопки: {', '.join(content.get('buttons', [])[:10]) if content.get('buttons') else 'Не найдено'}
-- Ссылки: {len(content.get('links', []))} ссылок
-- Поля ввода: {content.get('inputs', 0)} полей
-
-Текст страницы (первые 300 символов): {content.get('text', '')[:300]}"""
+            # Формируем структурированный контекст
+            context_lines = [
+                f"=== ИНФОРМАЦИЯ О СТРАНИЦЕ ===",
+                f"URL: {content.get('url', 'Неизвестно')}",
+                f"Заголовок: {content.get('title', 'Неизвестно')}",
+                ""
+            ]
             
-            return context
+            # Кнопки
+            buttons = content.get('buttons', [])
+            if buttons:
+                context_lines.append(f"=== КНОПКИ ({len(buttons)}) ===")
+                for i, btn in enumerate(buttons[:20], 1):
+                    btn_info = []
+                    if btn.get('text'):
+                        btn_info.append(f"Текст: '{btn['text']}'")
+                    if btn.get('id'):
+                        btn_info.append(f"ID: #{btn['id']}")
+                    if btn.get('class'):
+                        classes = btn['class'].split()[:2]  # Первые 2 класса
+                        btn_info.append(f"Класс: .{'.'.join(classes)}")
+                    if btn.get('type'):
+                        btn_info.append(f"Тип: {btn['type']}")
+                    
+                    if btn_info:
+                        context_lines.append(f"{i}. {', '.join(btn_info)}")
+                context_lines.append("")
+            
+            # Поля ввода
+            inputs = content.get('inputs', [])
+            if inputs:
+                context_lines.append(f"=== ПОЛЯ ВВОДА ({len(inputs)}) ===")
+                for i, inp in enumerate(inputs[:20], 1):
+                    inp_info = []
+                    if inp.get('type'):
+                        inp_info.append(f"Тип: {inp['type']}")
+                    if inp.get('name'):
+                        inp_info.append(f"Name: {inp['name']}")
+                    if inp.get('id'):
+                        inp_info.append(f"ID: #{inp['id']}")
+                    if inp.get('placeholder'):
+                        inp_info.append(f"Placeholder: '{inp['placeholder']}'")
+                    
+                    if inp_info:
+                        context_lines.append(f"{i}. {', '.join(inp_info)}")
+                context_lines.append("")
+            
+            # Ссылки
+            links = content.get('links', [])
+            if links:
+                context_lines.append(f"=== ССЫЛКИ ({len(links)}) ===")
+                for i, link in enumerate(links[:15], 1):
+                    link_info = []
+                    if link.get('text'):
+                        link_info.append(f"'{link['text']}'")
+                    if link.get('href'):
+                        href = link['href'][:60]  # Первые 60 символов
+                        link_info.append(f"→ {href}")
+                    
+                    if link_info:
+                        context_lines.append(f"{i}. {' '.join(link_info)}")
+                context_lines.append("")
+            
+            # Заголовки
+            headings = content.get('headings', [])
+            if headings:
+                context_lines.append(f"=== ЗАГОЛОВКИ ({len(headings)}) ===")
+                for heading in headings[:10]:
+                    context_lines.append(f"{heading['level'].upper()}: {heading['text']}")
+                context_lines.append("")
+            
+            # Видимый текст (ключевые фразы)
+            visible_text = content.get('visible_text', [])
+            if visible_text:
+                context_lines.append(f"=== КЛЮЧЕВЫЕ ТЕКСТЫ ===")
+                for text in visible_text[:20]:
+                    if len(text) > 5:
+                        context_lines.append(f"- {text[:100]}")  # Первые 100 символов
+                context_lines.append("")
+            
+            # Предпросмотр основного текста
+            body_preview = content.get('body_text_preview', '')
+            if body_preview:
+                context_lines.append(f"=== ПРЕДПРОСМОТР ТЕКСТА СТРАНИЦЫ ===")
+                context_lines.append(body_preview)
+            
+            return "\n".join(context_lines)
         except Exception as e:
             return f"Ошибка при получении контекста: {str(e)}"
     
@@ -64,28 +149,31 @@ URL: {content.get('url', 'Неизвестно')}
         
         Args:
             user_message: Сообщение пользователя с инструкцией
-            include_context: Включать ли контекст страницы (если None, используется self.context_needed)
+            include_context: Включать ли контекст страницы (если None, всегда включается)
             
         Returns:
             Словарь с командой или None при ошибке
         """
+        # Всегда передаем контекст страницы, если не указано иное
         if include_context is None:
-            include_context = self.context_needed
+            include_context = True
         
         # Формируем промпт для ИИ
         system_prompt = """Ты часть системы автоматизации веб-сайтов. Твоя задача - преобразовывать инструкции пользователя в JSON команды для выполнения действий на сайте.
 
 ВАЖНО: 
-- Когда пользователь просит выполнить действие (нажать кнопку, ввести текст, перейти и т.д.) - верни ТОЛЬКО JSON команду
+- Когда пользователь просит выполнить действие (нажать кнопку, ввести текст, перейти и т.д.) - верни ТОЛЬКО JSON команду (ОДНУ команду за раз)
 - Если действие невозможно выполнить или есть проблема (элемент не найден, неясная инструкция) - верни JSON с полем "error" и объяснением проблемы: {"error": "объяснение проблемы"}
 - НЕ пиши объяснения вне JSON - только команда или ошибка в формате JSON
+- Для сложных действий (например "Войди в аккаунт") - верни ОДНУ ПЕРВУЮ команду (например, ввод логина). Пользователь отправит следующую команду для следующего шага.
 
 Доступные команды:
 1. click - клик по элементу
    {"action": "click", "selector": "селектор", "method": "css|xpath|id|name|class|tag|text"}
 
-2. type - ввод текста
+2. type - ввод текста в поле
    {"action": "type", "selector": "селектор", "value": "текст для ввода", "method": "css|xpath|id|name|class|tag", "clear_first": true, "press_enter": false}
+   Пример: {"action": "type", "selector": "input[name='username']", "value": "qwerqwer", "method": "css"}
 
 3. scroll - прокрутка страницы
    {"action": "scroll", "direction": "up|down|top|bottom|to_element", "selector": "селектор (если to_element)", "pixels": число (опционально)}
@@ -109,21 +197,44 @@ URL: {content.get('url', 'Неизвестно')}
 - Успешная команда: {"action": "...", "selector": "...", ...} - только JSON, без текста
 - Ошибка: {"error": "подробное объяснение проблемы"} - если элемент не найден, инструкция неясна и т.д.
 
+ПРАВИЛА ВЫБОРА МЕТОДА СЕЛЕКТОРА (КРИТИЧЕСКИ ВАЖНО!):
+- CSS селекторы (method: "css"): 
+  * Начинаются с # (id) или . (class): "#login-form", ".button"
+  * Содержат []: "input[name='username']", "#form input[type='text']"
+  * Комбинации: "#login-form input[name='username']", ".button.primary"
+  * Если селектор содержит #, . или [] - ВСЕГДА используй method: "css"
+  
+- XPath селекторы (method: "xpath"):
+  * Начинаются с // или /: "//button[@type='submit']", "/html/body/div"
+  * Содержат @: "//input[@name='username']"
+  * Используй только для сложных поисков, если CSS не подходит
+  
+- Другие методы:
+  * method: "id" - только для простого ID без #: {"selector": "login-form", "method": "id"}
+  * method: "name" - только для атрибута name: {"selector": "username", "method": "name"}
+  * method: "class" - только для одного класса без .: {"selector": "button", "method": "class"}
+  * method: "tag" - только для тега: {"selector": "button", "method": "tag"}
+  * method: "text" - для поиска по тексту элемента (только для click): {"selector": "Войти", "method": "text"}
+
 ПРАВИЛА:
-- Для метода селектора используй: css, xpath, id, name, class, tag, text
-- Для поиска по тексту используй method: "text" и в selector укажи текст элемента
-- Будь точным в селекторах - используй ID или уникальные классы когда возможно
-- Если текст кнопки/элемента указан в инструкции - используй method: "text" и в selector укажи этот текст"""
+- Будь точным в селекторах - используй ID, name или CSS селекторы когда возможно
+- Если текст кнопки/элемента указан в инструкции - используй method: "text" и в selector укажи этот текст
+- Для форм используй CSS селекторы: "input[name='username']", "#login-form input[type='password']"
+- НИКОГДА не используй XPath для CSS селекторов! Если видишь #, . или [] - используй method: "css" """
 
         user_prompt = user_message
         
         if include_context:
             context = self.get_page_context()
             user_prompt = f"{context}\n\nИнструкция пользователя: {user_message}"
-            self.context_needed = False  # Контекст больше не нужен до следующего изменения страницы
         
         try:
-            response = self.api_client.ai_chat(user_prompt, system_prompt)
+            # Используем локальный LLM
+            if not self.llm_client:
+                return {"error": "Локальный LLM клиент не инициализирован"}
+            
+            response = self.llm_client.chat(user_prompt, system_prompt, max_tokens=500)
+            
             if not response:
                 return {"error": "ИИ не вернул ответ"}
             
@@ -211,10 +322,15 @@ URL: {content.get('url', 'Неизвестно')}
         """
         success, message, result = self.executor.execute(command_dict)
         
-        # Если выполнялась навигация или клик, нужно обновить контекст
+        # Обновляем последний URL для отслеживания изменений страницы
         action = command_dict.get("action")
-        if action in ["navigate", "click"]:
-            self.context_needed = True
+        if action == "navigate":
+            # После навигации обновляем URL
+            if self.clicker.driver:
+                try:
+                    self.last_url = self.clicker.driver.current_url
+                except:
+                    pass
         
         return {
             "success": success,

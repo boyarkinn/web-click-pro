@@ -275,22 +275,106 @@ class WebClicker:
     
     def read_page_content(self) -> Dict[str, Any]:
         """
-        Чтение и анализ содержимого страницы
+        Чтение и анализ содержимого страницы в текстовом формате
         
         Returns:
-            Словарь с информацией о странице
+            Словарь с детальной информацией о странице
         """
         if not self.driver:
             return {}
         
         try:
+            # Базовая информация
+            body_text = self.driver.find_element(By.TAG_NAME, "body").text
+            
+            # Извлекаем кнопки с деталями
+            buttons = []
+            try:
+                for btn in self.driver.find_elements(By.TAG_NAME, "button")[:30]:
+                    btn_text = btn.text.strip() if btn.text else ""
+                    btn_id = btn.get_attribute("id") or ""
+                    btn_class = btn.get_attribute("class") or ""
+                    btn_type = btn.get_attribute("type") or "button"
+                    
+                    if btn_text or btn_id:
+                        buttons.append({
+                            "text": btn_text,
+                            "id": btn_id,
+                            "class": btn_class,
+                            "type": btn_type
+                        })
+            except Exception as e:
+                print(f"[WARNING] Ошибка при извлечении кнопок: {e}")
+            
+            # Извлекаем input поля с деталями
+            inputs = []
+            try:
+                for inp in self.driver.find_elements(By.TAG_NAME, "input")[:30]:
+                    inp_type = inp.get_attribute("type") or "text"
+                    inp_name = inp.get_attribute("name") or ""
+                    inp_id = inp.get_attribute("id") or ""
+                    inp_placeholder = inp.get_attribute("placeholder") or ""
+                    inp_value = inp.get_attribute("value") or ""
+                    
+                    inputs.append({
+                        "type": inp_type,
+                        "name": inp_name,
+                        "id": inp_id,
+                        "placeholder": inp_placeholder,
+                        "value": inp_value
+                    })
+            except Exception as e:
+                print(f"[WARNING] Ошибка при извлечении полей ввода: {e}")
+            
+            # Извлекаем ссылки с текстом
+            links = []
+            try:
+                for link in self.driver.find_elements(By.TAG_NAME, "a")[:30]:
+                    link_text = link.text.strip() if link.text else ""
+                    link_href = link.get_attribute("href") or ""
+                    
+                    if link_text or link_href:
+                        links.append({
+                            "text": link_text,
+                            "href": link_href
+                        })
+            except Exception as e:
+                print(f"[WARNING] Ошибка при извлечении ссылок: {e}")
+            
+            # Извлекаем заголовки
+            headings = []
+            try:
+                for tag in ["h1", "h2", "h3"]:
+                    for heading in self.driver.find_elements(By.TAG_NAME, tag)[:10]:
+                        heading_text = heading.text.strip() if heading.text else ""
+                        if heading_text:
+                            headings.append({
+                                "level": tag,
+                                "text": heading_text
+                            })
+            except Exception as e:
+                print(f"[WARNING] Ошибка при извлечении заголовков: {e}")
+            
+            # Извлекаем текстовые элементы (div, span, p с видимым текстом)
+            visible_text = []
+            try:
+                for tag in ["div", "span", "p", "label"]:
+                    for elem in self.driver.find_elements(By.TAG_NAME, tag)[:50]:
+                        elem_text = elem.text.strip() if elem.text else ""
+                        if elem_text and len(elem_text) > 5 and len(elem_text) < 200:
+                            visible_text.append(elem_text)
+            except Exception as e:
+                print(f"[WARNING] Ошибка при извлечении текста: {e}")
+            
             content = {
                 "title": self.driver.title,
                 "url": self.driver.current_url,
-                "text": self.driver.find_element(By.TAG_NAME, "body").text[:1000],  # Первые 1000 символов
-                "links": [link.get_attribute("href") for link in self.driver.find_elements(By.TAG_NAME, "a")[:20]],
-                "buttons": [btn.text for btn in self.driver.find_elements(By.TAG_NAME, "button")[:20]],
-                "inputs": len(self.driver.find_elements(By.TAG_NAME, "input"))
+                "buttons": buttons,
+                "inputs": inputs,
+                "links": links,
+                "headings": headings,
+                "visible_text": list(set(visible_text))[:50],  # Уникальные тексты
+                "body_text_preview": body_text[:500]  # Первые 500 символов основного текста
             }
             return content
         except Exception as e:

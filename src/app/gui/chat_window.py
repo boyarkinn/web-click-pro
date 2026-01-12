@@ -14,8 +14,13 @@ except ImportError:
     from tkinter import scrolledtext
     USE_CUSTOM_TKINTER = False
 
-# Импорт API клиента для работы с Railway
-from app.api.client import APIClient
+# Импорт локального LLM клиента
+try:
+    from app.ai.local_llm_client import LocalLLMClient, create_local_llm_client
+    LOCAL_LLM_AVAILABLE = True
+except ImportError:
+    LOCAL_LLM_AVAILABLE = False
+
 # Импорт automation
 from app.automation.ai_controller import AIController
 from app.core.clicker import WebClicker
@@ -26,22 +31,28 @@ class ChatWindow:
     
     def __init__(self, parent=None, clicker: WebClicker = None):
         """Инициализация окна чата"""
-        self.api_client = None
+        self.llm_client = None
         self.current_url = None
         self.clicker = clicker
         self.ai_controller = None
         
-        try:
-            # Используем API клиент для работы с Railway
-            self.api_client = APIClient()
-            print("[OK] API клиент инициализирован")
-        except Exception as e:
-            print(f"[WARNING] API клиент не настроен: {e}")
-        
-        # Инициализируем AI контроллер для автоматизации (если есть clicker)
-        if self.clicker and self.api_client:
+        # Создаем локальный LLM клиент
+        if LOCAL_LLM_AVAILABLE:
             try:
-                self.ai_controller = AIController(self.clicker, self.api_client)
+                self.llm_client = create_local_llm_client()
+                if self.llm_client:
+                    print("[OK] Локальный LLM клиент инициализирован")
+                else:
+                    print("[WARNING] Не удалось создать локальный LLM клиент")
+            except Exception as e:
+                print(f"[WARNING] Ошибка при создании локального LLM клиента: {e}")
+        else:
+            print("[ERROR] Локальный LLM клиент недоступен. Установите: pip install torch transformers")
+        
+        # Инициализируем AI контроллер для автоматизации (если есть clicker и локальный клиент)
+        if self.clicker and self.llm_client:
+            try:
+                self.ai_controller = AIController(self.clicker, llm_client=self.llm_client)
                 print("[OK] AI контроллер для автоматизации инициализирован")
             except Exception as e:
                 print(f"[WARNING] AI контроллер не настроен: {e}")
@@ -155,8 +166,8 @@ class ChatWindow:
     
     def _send_message(self):
         """Обработка команды пользователя через систему автоматизации"""
-        if not self.api_client:
-            self._add_message("Ошибка: API клиент не настроен. Проверьте подключение к Railway", is_user=False)
+        if not self.ai_controller:
+            self._add_message("⚠ Ошибка: Локальная модель не настроена. Проверьте установку локальной модели (pip install torch transformers)", is_user=False)
             return
         
         message = self.input_entry.get().strip()
@@ -203,35 +214,6 @@ class ChatWindow:
             self._add_message(f"❌ Ошибка: {str(e)}", is_user=False)
         finally:
             self.send_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
-    
-    def analyze_website(self, screenshot_path: str, url: str):
-        """Анализ сайта через API"""
-        if not self.api_client:
-            self._add_message("Ошибка: API клиент не настроен. Проверьте подключение к Railway", is_user=False)
-            return
-        
-        self.current_url = url
-        self._add_message(f"Анализирую сайт: {url}...", is_user=False)
-        
-        try:
-            prompt = (
-                "Ты видишь скриншот веб-сайта. Опиши подробно:\n"
-                "1. Какой это сайт (название, тип)\n"
-                "2. Что на нем изображено\n"
-                "3. Для чего этот сайт предназначен\n"
-                "4. Какие основные функции/возможности видны\n"
-                "5. Общее впечатление и оценка дизайна\n\n"
-                "Будь конкретным и детальным."
-            )
-            
-            response = self.api_client.ai_analyze_image(screenshot_path, prompt)
-            
-            if response:
-                self._add_message(f"Анализ сайта {url}:\n\n{response}", is_user=False)
-            else:
-                self._add_message("Не удалось проанализировать сайт", is_user=False)
-        except Exception as e:
-            self._add_message(f"Ошибка при анализе: {str(e)}", is_user=False)
     
     def show(self):
         """Показать окно"""
