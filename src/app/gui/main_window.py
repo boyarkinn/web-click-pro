@@ -263,9 +263,18 @@ class MainWindow:
                 screenshot_path = os.path.join(screenshots_dir, f"screenshot_{int(time.time())}.png")
                 
                 if self.clicker.take_screenshot(screenshot_path):
-                    # Создаем или показываем окно чата
+                    # Создаем или показываем окно чата (передаем clicker для автоматизации)
                     if not self.chat_window:
-                        self.chat_window = ChatWindow(self.root)
+                        self.chat_window = ChatWindow(self.root, clicker=self.clicker)
+                    else:
+                        # Обновляем clicker в существующем окне чата
+                        self.chat_window.clicker = self.clicker
+                        if self.chat_window.api_client:
+                            try:
+                                from app.automation.ai_controller import AIController
+                                self.chat_window.ai_controller = AIController(self.clicker, self.chat_window.api_client)
+                            except:
+                                pass
                     
                     self.chat_window.show()
                     

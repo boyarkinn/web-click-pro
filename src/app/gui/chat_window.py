@@ -1,5 +1,5 @@
 """
-Окно чата с GPT для анализа сайтов
+Окно команд для автоматизации сайтов
 """
 
 import sys
@@ -16,29 +16,42 @@ except ImportError:
 
 # Импорт API клиента для работы с Railway
 from app.api.client import APIClient
+# Импорт automation
+from app.automation.ai_controller import AIController
+from app.core.clicker import WebClicker
 
 
 class ChatWindow:
-    """Окно чата с GPT"""
+    """Окно команд для автоматизации сайтов"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, clicker: WebClicker = None):
         """Инициализация окна чата"""
         self.api_client = None
         self.current_url = None
+        self.clicker = clicker
+        self.ai_controller = None
         
         try:
             # Используем API клиент для работы с Railway
             self.api_client = APIClient()
-            print("[OK] API клиент для GPT инициализирован")
+            print("[OK] API клиент инициализирован")
         except Exception as e:
             print(f"[WARNING] API клиент не настроен: {e}")
+        
+        # Инициализируем AI контроллер для автоматизации (если есть clicker)
+        if self.clicker and self.api_client:
+            try:
+                self.ai_controller = AIController(self.clicker, self.api_client)
+                print("[OK] AI контроллер для автоматизации инициализирован")
+            except Exception as e:
+                print(f"[WARNING] AI контроллер не настроен: {e}")
         
         if USE_CUSTOM_TKINTER:
             self.window = ctk.CTkToplevel(parent) if parent else ctk.CTk()
         else:
             self.window = tk.Toplevel(parent) if parent else tk.Tk()
         
-        self.window.title("GPT Анализ сайта")
+        self.window.title("Автоматизация сайта")
         self.window.geometry("600x500")
         
         self._create_widgets()
@@ -49,7 +62,7 @@ class ChatWindow:
             # Заголовок
             title = ctk.CTkLabel(
                 self.window,
-                text="GPT Анализ",
+                text="Автоматизация сайта",
                 font=ctk.CTkFont(size=20, weight="bold")
             )
             title.pack(pady=10)
@@ -85,7 +98,7 @@ class ChatWindow:
             # Обычный Tkinter
             title = tk.Label(
                 self.window,
-                text="GPT Анализ",
+                text="Автоматизация сайта",
                 font=("Arial", 20, "bold"),
                 bg="#2b2b2b",
                 fg="white"
@@ -131,7 +144,7 @@ class ChatWindow:
     def _add_message(self, message: str, is_user: bool = False):
         """Добавление сообщения в чат"""
         if USE_CUSTOM_TKINTER:
-            self.chat_area.insert("end", f"{'Вы' if is_user else 'GPT'}: {message}\n\n")
+            self.chat_area.insert("end", f"{'Вы' if is_user else 'Система'}: {message}\n\n")
             self.chat_area.see("end")
         else:
             tag = "user" if is_user else "gpt"
@@ -141,7 +154,7 @@ class ChatWindow:
             self.chat_area.see("end")
     
     def _send_message(self):
-        """Отправка сообщения"""
+        """Обработка команды пользователя через систему автоматизации"""
         if not self.api_client:
             self._add_message("Ошибка: API клиент не настроен. Проверьте подключение к Railway", is_user=False)
             return
@@ -154,19 +167,45 @@ class ChatWindow:
         self.input_entry.delete(0, "end")
         self.send_button.configure(state="disabled" if USE_CUSTOM_TKINTER else "disabled")
         
+        # Проверяем доступность автоматизации
+        automation_available = (
+            self.ai_controller is not None and 
+            self.clicker is not None and 
+            self.clicker.driver is not None
+        )
+        
+        if not automation_available:
+            self._add_message("⚠ Автоматизация недоступна. Убедитесь, что браузер открыт и сайт загружен.", is_user=False)
+            self.send_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
+            return
+        
         try:
-            response = self.api_client.ai_chat(message)
-            if response:
-                self._add_message(response, is_user=False)
+            # Все команды обрабатываем через систему автоматизации
+            self._add_message("🔄 Обрабатываю команду...", is_user=False)
+            result = self.ai_controller.process_user_instruction(message)
+            
+            if result["success"]:
+                # Команда выполнена успешно
+                self._add_message(f"✅ {result['message']}", is_user=False)
+                if result.get("result"):
+                    self._add_message(f"Результат: {result['result']}", is_user=False)
             else:
-                self._add_message("Ошибка при получении ответа от GPT", is_user=False)
+                # Произошла ошибка
+                error_msg = result.get("message", "Неизвестная ошибка")
+                
+                # Если ИИ вернул объяснение ошибки (через поле error в JSON)
+                if result.get("error_explanation"):
+                    self._add_message(f"❌ {result['error_explanation']}", is_user=False)
+                else:
+                    self._add_message(f"❌ Ошибка: {error_msg}", is_user=False)
+                    
         except Exception as e:
-            self._add_message(f"Ошибка: {str(e)}", is_user=False)
+            self._add_message(f"❌ Ошибка: {str(e)}", is_user=False)
         finally:
             self.send_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
     
     def analyze_website(self, screenshot_path: str, url: str):
-        """Анализ сайта через GPT через API"""
+        """Анализ сайта через API"""
         if not self.api_client:
             self._add_message("Ошибка: API клиент не настроен. Проверьте подключение к Railway", is_user=False)
             return
