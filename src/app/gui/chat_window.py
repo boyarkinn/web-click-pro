@@ -14,8 +14,8 @@ except ImportError:
     from tkinter import scrolledtext
     USE_CUSTOM_TKINTER = False
 
-# Импорт AI клиента
-from app.ai.openai_client import OpenAIClient
+# Импорт API клиента для работы с Railway
+from app.api.client import APIClient
 
 
 class ChatWindow:
@@ -23,13 +23,15 @@ class ChatWindow:
     
     def __init__(self, parent=None):
         """Инициализация окна чата"""
-        self.ai_client = None
+        self.api_client = None
         self.current_url = None
         
         try:
-            self.ai_client = OpenAIClient()
-        except ValueError as e:
-            print(f"[WARNING] OpenAI не настроен: {e}")
+            # Используем API клиент для работы с Railway
+            self.api_client = APIClient()
+            print("[OK] API клиент для GPT инициализирован")
+        except Exception as e:
+            print(f"[WARNING] API клиент не настроен: {e}")
         
         if USE_CUSTOM_TKINTER:
             self.window = ctk.CTkToplevel(parent) if parent else ctk.CTk()
@@ -140,8 +142,8 @@ class ChatWindow:
     
     def _send_message(self):
         """Отправка сообщения"""
-        if not self.ai_client:
-            self._add_message("Ошибка: OpenAI не настроен. Проверьте OPENAI_API_KEY", is_user=False)
+        if not self.api_client:
+            self._add_message("Ошибка: API клиент не настроен. Проверьте подключение к Railway", is_user=False)
             return
         
         message = self.input_entry.get().strip()
@@ -153,7 +155,7 @@ class ChatWindow:
         self.send_button.configure(state="disabled" if USE_CUSTOM_TKINTER else "disabled")
         
         try:
-            response = self.ai_client.chat(message)
+            response = self.api_client.ai_chat(message)
             if response:
                 self._add_message(response, is_user=False)
             else:
@@ -164,9 +166,9 @@ class ChatWindow:
             self.send_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
     
     def analyze_website(self, screenshot_path: str, url: str):
-        """Анализ сайта через GPT"""
-        if not self.ai_client:
-            self._add_message("Ошибка: OpenAI не настроен", is_user=False)
+        """Анализ сайта через GPT через API"""
+        if not self.api_client:
+            self._add_message("Ошибка: API клиент не настроен. Проверьте подключение к Railway", is_user=False)
             return
         
         self.current_url = url
@@ -183,7 +185,7 @@ class ChatWindow:
                 "Будь конкретным и детальным."
             )
             
-            response = self.ai_client.analyze_image(screenshot_path, prompt)
+            response = self.api_client.ai_analyze_image(screenshot_path, prompt)
             
             if response:
                 self._add_message(f"Анализ сайта {url}:\n\n{response}", is_user=False)

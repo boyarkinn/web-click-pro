@@ -3,7 +3,7 @@ FastAPI сервер для Railway
 Подключается к MongoDB
 """
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from pymongo.database import Database
@@ -12,6 +12,8 @@ from typing import List, Optional
 from datetime import datetime
 import os
 import uvicorn
+import base64
+import openai
 
 # Инициализация приложения
 app = FastAPI(title="Web Clicker API", version="1.0.0")
@@ -38,6 +40,17 @@ if not MONGODB_URL:
 print(f"[INFO] Connecting to MongoDB: {MONGODB_URL[:20]}...")  # Не показываем полный URL в логах
 client = MongoClient(MONGODB_URL)
 db: Database = client[DATABASE_NAME]
+
+# Инициализация OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai_client = None
+
+if OPENAI_API_KEY:
+    import openai
+    openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    print("[OK] OpenAI клиент инициализирован")
+else:
+    print("[WARNING] OPENAI_API_KEY не установлен - AI функции недоступны")
 
 
 # Pydantic модели
@@ -238,7 +251,8 @@ def health_check():
             "status": "ok",
             "version": "1.0.0",
             "database": "connected",
-            "mongodb_url_configured": bool(MONGODB_URL)
+            "mongodb_url_configured": bool(MONGODB_URL),
+            "openai_configured": bool(openai_client)
         }
     except Exception as e:
         return {
@@ -246,8 +260,102 @@ def health_check():
             "version": "1.0.0",
             "database": "disconnected",
             "mongodb_url_configured": bool(MONGODB_URL),
+            "openai_configured": bool(openai_client),
             "error": str(e)[:200]  # Ограничиваем длину ошибки
         }
+
+
+# ========== AI ENDPOINTS ==========
+
+class ChatRequest(BaseModel):
+    message: str
+    system_prompt: Optional[str] = None
+
+
+class ChatResponse(BaseModel):
+    response: str
+    success: bool
+
+
+@app.post("/api/ai/chat", response_model=ChatResponse)
+def ai_chat(request: ChatRequest):
+    """Чат с GPT"""
+    if not openai_client:
+        raise HTTPException(status_code=503, detail="OpenAI не настроен. Проверьте OPENAI_API_KEY")
+    
+    try:
+        messages = []
+        if request.system_prompt:
+            messages.append({"role": "system", "content": request.system_prompt})
+        messages.append({"role": "user", "content": request.message})
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4",
+            messages=messages,
+            max_tokens=1000
+        )
+        
+        return ChatResponse(
+            response=response.choices[0].message.content,
+            success=True
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка при запросе к GPT: {str(e)}")
+
+
+class AnalyzeImageRequest(BaseModel):
+    image_base64: str
+    prompt: Optional[str] = "Опиши что изображено на этом изображении"
+
+
+@app.post("/api/ai/analyze-image", response_model=ChatResponse)
+def ai_analyze_image(request: AnalyzeImageRequest):
+    """Анализ изображения через GPT-4 Vision"""
+    if not openai_client:
+        raise HTTPException(status_code=503, detail="OpenAI не настроен. Проверьте OPENAI_API_KEY")
+    
+    try:
+        import base64
+        
+        # Определяем тип изображения
+        if request.image_base64.startswith("data:image/png"):
+            mime_type = "image/png"
+            image_data = request.image_base64.split(",")[1]
+        elif request.image_base64.startswith("data:image/jpeg") or request.image_base64.startswith("data:image/jpg"):
+            mime_type = "image/jpeg"
+            image_data = request.image_base64.split(",")[1]
+        else:
+            # Предполагаем base64 без префикса
+            mime_type = "image/png"
+            image_data = request.image_base64
+        
+        prompt = request.prompt or "Опиши что изображено на этом изображении"
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4-vision-preview",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{image_data}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=500
+        )
+        
+        return ChatResponse(
+            response=response.choices[0].message.content,
+            success=True
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка при анализе изображения: {str(e)}")
 
 
 if __name__ == "__main__":

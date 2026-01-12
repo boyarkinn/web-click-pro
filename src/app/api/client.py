@@ -5,6 +5,7 @@ HTTP клиент для связи с облачным бэкендом на Ra
 import requests
 from typing import Optional, List, Dict, Any
 import os
+import base64
 
 
 class APIClient:
@@ -142,3 +143,41 @@ class APIClient:
         """Проверка подключения к API"""
         result = self._request("GET", "/api/health")
         return result is not None and result.get("status") == "ok"
+    
+    # ========== AI ==========
+    
+    def ai_chat(self, message: str, system_prompt: Optional[str] = None) -> Optional[str]:
+        """Чат с GPT через API"""
+        data = {
+            "message": message,
+            "system_prompt": system_prompt
+        }
+        result = self._request("POST", "/api/ai/chat", json=data)
+        return result.get("response") if result and result.get("success") else None
+    
+    def ai_analyze_image(self, image_path: str, prompt: Optional[str] = None) -> Optional[str]:
+        """Анализ изображения через GPT-4 Vision через API"""
+        try:
+            import base64
+            
+            # Читаем и кодируем изображение в base64
+            with open(image_path, "rb") as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            # Определяем тип изображения
+            image_ext = os.path.splitext(image_path)[1].lower()
+            mime_type = "image/jpeg" if image_ext in [".jpg", ".jpeg"] else "image/png"
+            
+            # Формируем base64 URL
+            image_base64 = f"data:{mime_type};base64,{image_data}"
+            
+            data = {
+                "image_base64": image_base64,
+                "prompt": prompt or "Опиши что изображено на этом изображении"
+            }
+            
+            result = self._request("POST", "/api/ai/analyze-image", json=data)
+            return result.get("response") if result and result.get("success") else None
+        except Exception as e:
+            print(f"[ERROR] Ошибка при анализе изображения: {e}")
+            return None
