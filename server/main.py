@@ -316,14 +316,15 @@ def ai_analyze_image(request: AnalyzeImageRequest):
     
     try:
         import base64
+        import traceback
         
         # Определяем тип изображения
         if request.image_base64.startswith("data:image/png"):
             mime_type = "image/png"
-            image_data = request.image_base64.split(",")[1]
+            image_data = request.image_base64.split(",", 1)[1]  # Используем split с maxsplit=1
         elif request.image_base64.startswith("data:image/jpeg") or request.image_base64.startswith("data:image/jpg"):
             mime_type = "image/jpeg"
-            image_data = request.image_base64.split(",")[1]
+            image_data = request.image_base64.split(",", 1)[1]
         else:
             # Предполагаем base64 без префикса
             mime_type = "image/png"
@@ -331,31 +332,61 @@ def ai_analyze_image(request: AnalyzeImageRequest):
         
         prompt = request.prompt or "Опиши что изображено на этом изображении"
         
-        response = openai_client.chat.completions.create(
-            model="gpt-4-vision-preview",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{mime_type};base64,{image_data}"
+        # Проверяем длину изображения (для отладки)
+        print(f"[DEBUG] Image data length: {len(image_data)}")
+        print(f"[DEBUG] MIME type: {mime_type}")
+        
+        # Пробуем использовать актуальную модель
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",  # Используем gpt-4o вместо gpt-4-vision-preview
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{image_data}"
+                                }
                             }
-                        }
-                    ]
-                }
-            ],
-            max_tokens=500
-        )
+                        ]
+                    }
+                ],
+                max_tokens=1000
+            )
+        except Exception as model_error:
+            # Если gpt-4o не работает, пробуем gpt-4-vision-preview
+            print(f"[WARNING] gpt-4o failed, trying gpt-4-vision-preview: {model_error}")
+            response = openai_client.chat.completions.create(
+                model="gpt-4-vision-preview",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{image_data}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=1000
+            )
         
         return ChatResponse(
             response=response.choices[0].message.content,
             success=True
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка при анализе изображения: {str(e)}")
+        error_trace = traceback.format_exc()
+        print(f"[ERROR] Full error trace:\n{error_trace}")
+        error_msg = f"Ошибка при анализе изображения: {str(e)}"
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 if __name__ == "__main__":
