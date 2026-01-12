@@ -133,16 +133,36 @@ class WebClicker:
             WebElement или None
         """
         if not self.driver:
+            print(f"[DEBUG] find_element: Браузер не запущен, невозможно найти элемент")
             return None
+        
+        method_name = "CSS_SELECTOR" if by == By.CSS_SELECTOR else str(by)
+        print(f"[DEBUG] find_element: Поиск элемента selector='{selector}', method={method_name}, wait={wait}")
         
         try:
             if wait:
                 element = self.wait_for_element(selector, by)
             else:
                 element = self.driver.find_element(by, selector)
+            
+            if element:
+                try:
+                    tag = element.tag_name
+                    elem_id = element.get_attribute("id") or ""
+                    elem_name = element.get_attribute("name") or ""
+                    elem_type = element.get_attribute("type") or ""
+                    print(f"[DEBUG] find_element: Элемент найден! tag={tag}, id='{elem_id}', name='{elem_name}', type='{elem_type}'")
+                except:
+                    print(f"[DEBUG] find_element: Элемент найден (не удалось получить атрибуты)")
+            else:
+                print(f"[DEBUG] find_element: Элемент не найден (wait_for_element вернул None)")
+            
             return element
         except NoSuchElementException:
-            print(f"[ERROR] Элемент не найден: {selector}")
+            print(f"[ERROR] Элемент не найден (NoSuchElementException): {selector}")
+            return None
+        except Exception as e:
+            print(f"[ERROR] Исключение при поиске элемента: {e}")
             return None
     
     def find_elements(self, selector: str, by: By = By.CSS_SELECTOR):
@@ -214,18 +234,39 @@ class WebClicker:
         Returns:
             True если успешно, False иначе
         """
+        method_name = "CSS_SELECTOR" if by == By.CSS_SELECTOR else str(by)
+        print(f"[DEBUG] type_text: Попытка ввода текста selector='{selector}', method={method_name}, text_length={len(text)}, clear={clear}")
+        
         element = self.find_element(selector, by)
         if not element:
+            print(f"[ERROR] type_text: Не удалось найти элемент для ввода текста: selector='{selector}', method={method_name}")
             return False
         
         try:
+            # Получаем информацию об элементе
+            element_tag = element.tag_name
+            element_type = element.get_attribute("type") or ""
+            element_name = element.get_attribute("name") or ""
+            element_id = element.get_attribute("id") or ""
+            element_placeholder = element.get_attribute("placeholder") or ""
+            print(f"[DEBUG] type_text: Элемент найден - tag={element_tag}, type='{element_type}', name='{element_name}', id='{element_id}', placeholder='{element_placeholder}'")
+            
             if clear:
+                print(f"[DEBUG] type_text: Очистка поля перед вводом")
                 element.clear()
+            
+            print(f"[DEBUG] type_text: Ввод текста '{text[:50]}...'")
             element.send_keys(text)
+            
+            # Проверяем, что текст был введен
+            entered_value = element.get_attribute("value") or ""
+            print(f"[DEBUG] type_text: Текст введен успешно! entered_length={len(entered_value)}, entered_preview='{entered_value[:50]}...'")
             print(f"[OK] Текст введен в {selector}: {text[:50]}...")
             return True
         except Exception as e:
-            print(f"[ERROR] Ошибка при вводе текста: {e}")
+            print(f"[ERROR] type_text: Ошибка при вводе текста: {e}")
+            import traceback
+            print(f"[ERROR] type_text: Traceback: {traceback.format_exc()}")
             return False
     
     def get_text(self, selector: str, by: By = By.CSS_SELECTOR) -> Optional[str]:

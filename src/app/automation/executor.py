@@ -34,6 +34,31 @@ class CommandExecutor:
             SelectorMethod.TAG: By.TAG_NAME,
         }
     
+    def _fix_method_for_selector(self, selector: str, method: SelectorMethod) -> SelectorMethod:
+        """
+        Автокоррекция метода селектора на основе самого селектора
+        
+        Args:
+            selector: Селектор
+            method: Текущий метод
+            
+        Returns:
+            Исправленный метод
+        """
+        # Если селектор начинается с #, . или содержит [] - это CSS селектор
+        if selector.startswith("#") or selector.startswith(".") or "[" in selector or "]" in selector:
+            if method != SelectorMethod.CSS:
+                # Исправляем на CSS
+                return SelectorMethod.CSS
+        
+        # Если селектор начинается с // или / - это XPath
+        if selector.startswith("//") or selector.startswith("/"):
+            if method != SelectorMethod.XPATH:
+                # Исправляем на XPath
+                return SelectorMethod.XPATH
+        
+        return method
+    
     def execute(self, command_dict: Dict[str, Any]) -> Tuple[bool, Optional[str], Optional[Any]]:
         """
         Выполнение команды
@@ -77,6 +102,9 @@ class CommandExecutor:
         method = SelectorMethod(command_dict.get("method", "css"))
         scroll = command_dict.get("scroll", True)
         
+        # Автокоррекция метода: если селектор CSS-стиля, но метод указан неправильно
+        method = self._fix_method_for_selector(selector, method)
+        
         if method == SelectorMethod.TEXT:
             # Поиск по тексту элемента
             by = By.XPATH
@@ -98,27 +126,42 @@ class CommandExecutor:
         clear_first = command_dict.get("clear_first", True)
         press_enter = command_dict.get("press_enter", False)
         
+        print(f"[DEBUG] _execute_type: Выполнение команды type - selector='{selector}', method={method.value}, value_length={len(value)}, clear_first={clear_first}")
+        
+        # Автокоррекция метода ДО проверки: если селектор CSS-стиля, но метод указан неправильно
+        method = self._fix_method_for_selector(selector, method)
+        print(f"[DEBUG] _execute_type: После автокоррекции - method={method.value}")
+        
         if method == SelectorMethod.TEXT:
             # Поиск по тексту - для ввода текста это не подходит
-            return False, "Для команды 'type' нельзя использовать метод 'text'", None
+            error_msg = "Для команды 'type' нельзя использовать метод 'text'"
+            print(f"[ERROR] _execute_type: {error_msg}")
+            return False, error_msg, None
         
         by = self._selector_method_map[method]
+        print(f"[DEBUG] _execute_type: Преобразование метода селектора: {method.value} -> {by}")
         
         success = self.clicker.type_text(selector, value, by=by, clear=clear_first)
         
         if success and press_enter:
             # Нажимаем Enter после ввода
+            print(f"[DEBUG] _execute_type: Нажатие Enter после ввода")
             element = self.clicker.find_element(selector, by)
             if element:
                 try:
                     element.send_keys(Keys.RETURN)
-                except:
-                    pass
+                    print(f"[DEBUG] _execute_type: Enter нажат успешно")
+                except Exception as e:
+                    print(f"[WARNING] _execute_type: Не удалось нажать Enter: {e}")
         
         if success:
-            return True, f"Текст введен в {selector}: {value[:50]}...", None
+            message = f"Текст введен в {selector}: {value[:50]}..."
+            print(f"[DEBUG] _execute_type: Команда type выполнена успешно")
+            return True, message, None
         else:
-            return False, f"Не удалось ввести текст в {selector}", None
+            error_msg = f"Не удалось ввести текст в {selector}"
+            print(f"[ERROR] _execute_type: Команда type не выполнена: {error_msg}")
+            return False, error_msg, None
     
     def _execute_scroll(self, command_dict: Dict[str, Any]) -> Tuple[bool, Optional[str], None]:
         """Выполнение команды прокрутки"""

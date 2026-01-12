@@ -4,6 +4,8 @@
 
 import sys
 import os
+import threading
+from tkinter import filedialog
 
 # Пробуем использовать CustomTkinter
 try:
@@ -25,6 +27,10 @@ except ImportError:
 from app.automation.ai_controller import AIController
 from app.core.clicker import WebClicker
 
+# Импорт сценариев
+from app.scenarios.parser import ScenarioParser
+from app.scenarios.executor import ScenarioExecutor
+
 
 class ChatWindow:
     """Окно команд для автоматизации сайтов"""
@@ -35,6 +41,12 @@ class ChatWindow:
         self.current_url = None
         self.clicker = clicker
         self.ai_controller = None
+        
+        # Поля для сценариев
+        self.scenario_executor = None
+        self.current_scenario = None
+        self.scenario_file_path = None
+        self.scenario_thread = None
         
         # Создаем локальный LLM клиент
         if LOCAL_LLM_AVAILABLE:
@@ -62,7 +74,11 @@ class ChatWindow:
         else:
             self.window = tk.Toplevel(parent) if parent else tk.Tk()
         
-        self.window.title("Автоматизация сайта")
+        # Заголовок зависит от режима работы
+        if clicker:
+            self.window.title("Автоматизация сайта")
+        else:
+            self.window.title("Чат с ИИ")
         self.window.geometry("600x500")
         
         self._create_widgets()
@@ -71,12 +87,17 @@ class ChatWindow:
         """Создание виджетов"""
         if USE_CUSTOM_TKINTER:
             # Заголовок
+            title_text = "Автоматизация сайта" if self.clicker else "Чат с ИИ"
             title = ctk.CTkLabel(
                 self.window,
-                text="Автоматизация сайта",
+                text=title_text,
                 font=ctk.CTkFont(size=20, weight="bold")
             )
             title.pack(pady=10)
+            
+            # Фрейм управления сценариями (только для режима автоматизации)
+            if self.clicker:
+                self._create_scenario_widgets_ctk()
             
             # Область чата
             self.chat_area = ctk.CTkTextbox(
@@ -107,14 +128,19 @@ class ChatWindow:
             self.send_button.pack(side="right", padx=5)
         else:
             # Обычный Tkinter
+            title_text = "Автоматизация сайта" if self.clicker else "Чат с ИИ"
             title = tk.Label(
                 self.window,
-                text="Автоматизация сайта",
+                text=title_text,
                 font=("Arial", 20, "bold"),
                 bg="#2b2b2b",
                 fg="white"
             )
             title.pack(pady=10)
+            
+            # Фрейм управления сценариями (только для режима автоматизации)
+            if self.clicker:
+                self._create_scenario_widgets_tkinter()
             
             # Область чата
             self.chat_area = scrolledtext.ScrolledText(
@@ -152,6 +178,104 @@ class ChatWindow:
             )
             self.send_button.pack(side="right", padx=5)
     
+    def _create_scenario_widgets_ctk(self):
+        """Создание виджетов управления сценариями (CustomTkinter)"""
+        # Фрейм управления сценариями
+        scenario_frame = ctk.CTkFrame(self.window)
+        scenario_frame.pack(pady=5, padx=10, fill="x")
+        
+        # Кнопка "Загрузить сценарий"
+        self.load_scenario_btn = ctk.CTkButton(
+            scenario_frame,
+            text="Загрузить сценарий",
+            command=self._load_scenario,
+            width=150
+        )
+        self.load_scenario_btn.pack(side="left", padx=5)
+        
+        # Кнопка "Запустить сценарий"
+        self.run_scenario_btn = ctk.CTkButton(
+            scenario_frame,
+            text="Запустить сценарий",
+            command=self._run_scenario,
+            width=150,
+            state="disabled"
+        )
+        self.run_scenario_btn.pack(side="left", padx=5)
+        
+        # Кнопка "Остановить сценарий" (скрыта по умолчанию)
+        self.stop_scenario_btn = ctk.CTkButton(
+            scenario_frame,
+            text="Остановить",
+            command=self._stop_scenario,
+            width=120,
+            fg_color="red",
+            hover_color="darkred"
+        )
+        # Не pack-им сразу, будет показываться при запуске
+        
+        # Индикатор прогресса
+        self.progress_label = ctk.CTkLabel(
+            scenario_frame,
+            text="",
+            font=ctk.CTkFont(size=11)
+        )
+        self.progress_label.pack(side="left", padx=10, fill="x", expand=True)
+    
+    def _create_scenario_widgets_tkinter(self):
+        """Создание виджетов управления сценариями (Tkinter)"""
+        # Фрейм управления сценариями
+        scenario_frame = tk.Frame(self.window, bg="#2b2b2b")
+        scenario_frame.pack(pady=5, padx=10, fill="x")
+        
+        # Кнопка "Загрузить сценарий"
+        self.load_scenario_btn = tk.Button(
+            scenario_frame,
+            text="Загрузить сценарий",
+            command=self._load_scenario,
+            bg="#0078d4",
+            fg="white",
+            font=("Arial", 11),
+            width=18
+        )
+        self.load_scenario_btn.pack(side="left", padx=5)
+        
+        # Кнопка "Запустить сценарий"
+        self.run_scenario_btn = tk.Button(
+            scenario_frame,
+            text="Запустить сценарий",
+            command=self._run_scenario,
+            bg="#0078d4",
+            fg="white",
+            font=("Arial", 11),
+            width=18,
+            state="disabled"
+        )
+        self.run_scenario_btn.pack(side="left", padx=5)
+        
+        # Кнопка "Остановить сценарий" (скрыта по умолчанию)
+        self.stop_scenario_btn = tk.Button(
+            scenario_frame,
+            text="Остановить",
+            command=self._stop_scenario,
+            bg="red",
+            fg="white",
+            font=("Arial", 11),
+            width=15
+        )
+        # Не pack-им сразу, будет показываться при запуске
+        
+        # Индикатор прогресса
+        self.progress_label = tk.Label(
+            scenario_frame,
+            text="",
+            font=("Arial", 11),
+            bg="#2b2b2b",
+            fg="gray",
+            anchor="w"
+        )
+        self.progress_label.pack(side="left", padx=10, fill="x", expand=True)
+    
     def _add_message(self, message: str, is_user: bool = False):
         """Добавление сообщения в чат"""
         if USE_CUSTOM_TKINTER:
@@ -165,19 +289,30 @@ class ChatWindow:
             self.chat_area.see("end")
     
     def _send_message(self):
-        """Обработка команды пользователя через систему автоматизации"""
-        if not self.ai_controller:
-            self._add_message("⚠ Ошибка: Локальная модель не настроена. Проверьте установку локальной модели (pip install torch transformers)", is_user=False)
-            return
-        
+        """Обработка сообщения пользователя"""
         message = self.input_entry.get().strip()
         if not message:
+            return
+        
+        # Проверяем наличие модели
+        if not self.llm_client:
+            self._add_message("⚠ Ошибка: Локальная модель не настроена. Проверьте установку локальной модели (pip install torch transformers)", is_user=False)
             return
         
         self._add_message(message, is_user=True)
         self.input_entry.delete(0, "end")
         self.send_button.configure(state="disabled" if USE_CUSTOM_TKINTER else "disabled")
         
+        # Режим работы зависит от наличия clicker
+        if self.clicker and self.ai_controller:
+            # Режим автоматизации
+            self._send_automation_message(message)
+        else:
+            # Режим простого чата
+            self._send_chat_message(message)
+    
+    def _send_automation_message(self, message: str):
+        """Отправка сообщения в режиме автоматизации"""
         # Проверяем доступность автоматизации
         automation_available = (
             self.ai_controller is not None and 
@@ -214,6 +349,216 @@ class ChatWindow:
             self._add_message(f"❌ Ошибка: {str(e)}", is_user=False)
         finally:
             self.send_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
+    
+    def _send_chat_message(self, message: str):
+        """Отправка сообщения в режиме простого чата"""
+        try:
+            self._add_message("🔄 Думаю...", is_user=False)
+            
+            # Простой чат с моделью
+            response = self.llm_client.chat(
+                message,
+                system_prompt="Ты полезный помощник. Отвечай кратко и по делу.",
+                max_tokens=500
+            )
+            
+            if response:
+                self._add_message(response, is_user=False)
+            else:
+                self._add_message("❌ Не удалось получить ответ от модели", is_user=False)
+                
+        except Exception as e:
+            self._add_message(f"❌ Ошибка: {str(e)}", is_user=False)
+        finally:
+            self.send_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
+    
+    def _load_scenario(self):
+        """Загрузка файла сценария через диалог"""
+        try:
+            file_path = filedialog.askopenfilename(
+                title="Выберите файл сценария",
+                filetypes=[("JSON файлы", "*.json"), ("Все файлы", "*.*")]
+            )
+            
+            if not file_path:
+                return
+            
+            # Загрузка и парсинг сценария
+            try:
+                json_data = ScenarioParser.load_from_file(file_path)
+            except FileNotFoundError as e:
+                self._add_message(f"❌ Файл не найден: {str(e)}", is_user=False)
+                return
+            except ValueError as e:
+                # Ошибка парсинга JSON
+                self._add_message(f"❌ Ошибка парсинга JSON: {str(e)}", is_user=False)
+                return
+            except Exception as e:
+                self._add_message(f"❌ Ошибка загрузки файла: {str(e)}", is_user=False)
+                return
+            
+            try:
+                scenario = ScenarioParser.parse(json_data)
+            except ValueError as e:
+                # Ошибка парсинга структуры
+                self._add_message(f"❌ Ошибка парсинга сценария: {str(e)}", is_user=False)
+                return
+            
+            # Валидация сценария
+            from app.scenarios.validator import ScenarioValidator
+            is_valid, error = ScenarioValidator.validate(scenario)
+            if not is_valid:
+                # Ошибка валидации - показываем список проблем
+                self._add_message(f"❌ Ошибка валидации сценария:", is_user=False)
+                # Разбиваем ошибки по строкам (если их несколько)
+                errors = error.split('; ')
+                for err in errors:
+                    if err.strip():
+                        self._add_message(f"  • {err.strip()}", is_user=False)
+                return
+            
+            self.current_scenario = scenario
+            self.scenario_file_path = file_path
+            
+            # Обновление UI
+            scenario_name = scenario.get('name', 'Неизвестный сценарий')
+            self._add_message(f"✅ Сценарий загружен: {scenario_name}", is_user=False)
+            
+            # Включаем кнопку запуска
+            if USE_CUSTOM_TKINTER:
+                self.run_scenario_btn.configure(state="normal")
+            else:
+                self.run_scenario_btn.configure(state="normal")
+                
+        except Exception as e:
+            self._add_message(f"❌ Неожиданная ошибка: {str(e)}", is_user=False)
+    
+    def _run_scenario(self):
+        """Запуск сценария"""
+        if not self.current_scenario:
+            self._add_message("❌ Сценарий не загружен", is_user=False)
+            return
+        
+        if not self.ai_controller or not self.clicker:
+            self._add_message("❌ Автоматизация недоступна. Убедитесь, что браузер открыт.", is_user=False)
+            return
+        
+        # Создаем исполнитель сценария
+        self.scenario_executor = ScenarioExecutor(self.ai_controller, self.clicker)
+        
+        # Устанавливаем callbacks
+        self.scenario_executor.set_progress_callback(self._update_progress)
+        self.scenario_executor.set_complete_callback(self._on_scenario_complete)
+        self.scenario_executor.set_error_callback(self._on_scenario_error)
+        
+        # Изменяем состояние кнопок
+        if USE_CUSTOM_TKINTER:
+            self.run_scenario_btn.configure(state="disabled")
+            self.load_scenario_btn.configure(state="disabled")
+            # Показываем кнопку остановки (pack перед progress_label)
+            self.progress_label.pack_forget()
+            self.stop_scenario_btn.pack(side="left", padx=5)
+            self.progress_label.pack(side="left", padx=10, fill="x", expand=True)
+            self.stop_scenario_btn.configure(state="normal")
+        else:
+            self.run_scenario_btn.configure(state="disabled")
+            self.load_scenario_btn.configure(state="disabled")
+            # Показываем кнопку остановки (pack перед progress_label)
+            self.progress_label.pack_forget()
+            self.stop_scenario_btn.pack(side="left", padx=5)
+            self.progress_label.pack(side="left", padx=10, fill="x", expand=True)
+            self.stop_scenario_btn.configure(state="normal")
+        
+        # Показываем информацию о запуске
+        scenario_name = self.current_scenario.get('name', 'Неизвестный сценарий')
+        self._add_message(f"🚀 Запуск сценария: {scenario_name}", is_user=False)
+        
+        # Запускаем выполнение в отдельном потоке
+        self.scenario_thread = threading.Thread(target=self._execute_scenario_thread, daemon=True)
+        self.scenario_thread.start()
+    
+    def _execute_scenario_thread(self):
+        """Выполнение сценария в отдельном потоке"""
+        try:
+            self.scenario_executor.execute(self.current_scenario)
+        except Exception as e:
+            self._on_scenario_error(f"Ошибка выполнения сценария: {str(e)}")
+    
+    def _stop_scenario(self):
+        """Остановка выполнения сценария"""
+        if self.scenario_executor:
+            self.scenario_executor.stop()
+            self._add_message("⏹ Остановка сценария...", is_user=False)
+    
+    def _update_progress(self, current: int, total: int, status: str):
+        """Обновление индикатора прогресса"""
+        def update_ui():
+            progress_text = f"Шаг {current} из {total}: {status}"
+            if USE_CUSTOM_TKINTER:
+                self.progress_label.configure(text=progress_text)
+            else:
+                self.progress_label.configure(text=progress_text)
+        
+        # Обновляем UI в главном потоке
+        if USE_CUSTOM_TKINTER:
+            self.window.after(0, update_ui)
+        else:
+            self.window.after(0, update_ui)
+    
+    def _on_scenario_complete(self, stopped: bool, message: str):
+        """Обработка завершения сценария"""
+        def update_ui():
+            if stopped:
+                self._add_message(f"⏹ {message}", is_user=False)
+            else:
+                self._add_message(f"✅ {message}", is_user=False)
+            
+            # Сбрасываем состояние кнопок
+            if USE_CUSTOM_TKINTER:
+                self.run_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
+                self.load_scenario_btn.configure(state="normal")
+                self.stop_scenario_btn.pack_forget()
+                self.progress_label.configure(text="")
+            else:
+                self.run_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
+                self.load_scenario_btn.configure(state="normal")
+                self.stop_scenario_btn.pack_forget()
+                self.progress_label.configure(text="")
+            
+            self.scenario_executor = None
+            self.scenario_thread = None
+        
+        # Обновляем UI в главном потоке
+        if USE_CUSTOM_TKINTER:
+            self.window.after(0, update_ui)
+        else:
+            self.window.after(0, update_ui)
+    
+    def _on_scenario_error(self, error: str):
+        """Обработка ошибки сценария"""
+        def update_ui():
+            self._add_message(f"❌ {error}", is_user=False)
+            
+            # Сбрасываем состояние кнопок
+            if USE_CUSTOM_TKINTER:
+                self.run_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
+                self.load_scenario_btn.configure(state="normal")
+                self.stop_scenario_btn.pack_forget()
+                self.progress_label.configure(text="")
+            else:
+                self.run_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
+                self.load_scenario_btn.configure(state="normal")
+                self.stop_scenario_btn.pack_forget()
+                self.progress_label.configure(text="")
+            
+            self.scenario_executor = None
+            self.scenario_thread = None
+        
+        # Обновляем UI в главном потоке
+        if USE_CUSTOM_TKINTER:
+            self.window.after(0, update_ui)
+        else:
+            self.window.after(0, update_ui)
     
     def show(self):
         """Показать окно"""

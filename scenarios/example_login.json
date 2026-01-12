@@ -1,0 +1,30 @@
+{
+  "name": "Вход в аккаунт larnes.ru",
+  "description": "Простой сценарий входа в аккаунт. ВАЖНО: Нужно заменить селекторы на правильные для вашей страницы!",
+  "version": "1.0",
+  "steps": [
+    {
+      "action": "navigate",
+      "url": "https://larnes.ru/login"
+    },
+    {
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "action": "type",
+      "field": "логин",
+      "value": "qwerqwer"
+    },
+    {
+      "action": "type",
+      "field": "пароль",
+      "value": "qwer1234"
+    },
+    {
+      "action": "click",
+      "selector": "Войти",
+      "method": "text"
+    }
+  ]
+}

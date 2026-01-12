@@ -28,8 +28,9 @@ class MainWindow:
         """Инициализация главного окна"""
         # Инициализация кликера
         self.clicker = None
-        # Окно чата
+        # Окна
         self.chat_window = None
+        self.simple_chat_window = None
         
         if USE_CUSTOM_TKINTER:
             # Настройка CustomTkinter
@@ -62,8 +63,9 @@ class MainWindow:
     def _center_window(self):
         """Центрирование окна на экране"""
         self.root.update_idletasks()
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
+        # Используем заданный размер (800x600) вместо реального размера окна
+        width = 800
+        height = 600
         x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
@@ -87,21 +89,47 @@ class MainWindow:
         )
         subtitle.pack(pady=10)
         
-        # Фрейм для ввода URL
-        url_frame = ctk.CTkFrame(self.root)
-        url_frame.pack(pady=40, padx=40, fill="x")
+        # Фрейм для кнопок выбора режима
+        self.mode_frame = ctk.CTkFrame(self.root)
+        self.mode_frame.pack(pady=50, padx=40, fill="x")
+        
+        # Кнопка "Кликер"
+        self.clicker_button = ctk.CTkButton(
+            self.mode_frame,
+            text="Кликер",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            height=50,
+            command=self._show_clicker_mode
+        )
+        self.clicker_button.pack(pady=20, padx=40, fill="x")
+        
+        # Кнопка "Чат"
+        self.chat_button = ctk.CTkButton(
+            self.mode_frame,
+            text="Чат",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            height=50,
+            command=self._open_simple_chat,
+            fg_color="green",
+            hover_color="darkgreen"
+        )
+        self.chat_button.pack(pady=20, padx=40, fill="x")
+        
+        # Фрейм для ввода URL (скрыт по умолчанию)
+        self.url_frame = ctk.CTkFrame(self.root)
+        self.url_frame.pack_forget()  # Скрыт по умолчанию
         
         # Метка для поля ввода
-        url_label = ctk.CTkLabel(
-            url_frame,
+        self.url_label = ctk.CTkLabel(
+            self.url_frame,
             text="URL сайта:",
             font=ctk.CTkFont(size=14)
         )
-        url_label.pack(pady=(20, 10), padx=20)
+        self.url_label.pack(pady=(20, 10), padx=20)
         
         # Поле ввода URL
         self.url_entry = ctk.CTkEntry(
-            url_frame,
+            self.url_frame,
             placeholder_text="https://example.com",
             font=ctk.CTkFont(size=14),
             height=40
@@ -110,13 +138,25 @@ class MainWindow:
         
         # Кнопка открытия сайта
         self.open_button = ctk.CTkButton(
-            url_frame,
+            self.url_frame,
             text="Открыть сайт",
             font=ctk.CTkFont(size=16, weight="bold"),
             height=40,
             command=self._open_website
         )
         self.open_button.pack(pady=(10, 20), padx=20, fill="x")
+        
+        # Кнопка "Назад"
+        self.back_button = ctk.CTkButton(
+            self.url_frame,
+            text="Назад",
+            font=ctk.CTkFont(size=14),
+            height=35,
+            command=self._show_main_menu,
+            fg_color="gray",
+            hover_color="darkgray"
+        )
+        self.back_button.pack(pady=(0, 20), padx=20, fill="x")
         
         # Статус
         self.status_label = ctk.CTkLabel(
@@ -158,23 +198,56 @@ class MainWindow:
         )
         subtitle.pack(pady=10)
         
-        # Фрейм для ввода URL
-        url_frame = tk.Frame(self.root, bg="#2b2b2b")
-        url_frame.pack(pady=40, padx=40, fill="x")
+        # Фрейм для кнопок выбора режима
+        self.mode_frame = tk.Frame(self.root, bg="#2b2b2b")
+        self.mode_frame.pack(pady=50, padx=40, fill="x")
+        
+        # Кнопка "Кликер"
+        self.clicker_button = tk.Button(
+            self.mode_frame,
+            text="Кликер",
+            font=("Arial", 18, "bold"),
+            bg="#0078d4",
+            fg="white",
+            activebackground="#005a9e",
+            activeforeground="white",
+            relief="flat",
+            cursor="hand2",
+            command=self._show_clicker_mode
+        )
+        self.clicker_button.pack(pady=20, padx=40, fill="x", ipady=10)
+        
+        # Кнопка "Чат"
+        self.chat_button = tk.Button(
+            self.mode_frame,
+            text="Чат",
+            font=("Arial", 18, "bold"),
+            bg="green",
+            fg="white",
+            activebackground="darkgreen",
+            activeforeground="white",
+            relief="flat",
+            cursor="hand2",
+            command=self._open_simple_chat
+        )
+        self.chat_button.pack(pady=20, padx=40, fill="x", ipady=10)
+        
+        # Фрейм для ввода URL (скрыт по умолчанию)
+        self.url_frame = tk.Frame(self.root, bg="#2b2b2b")
         
         # Метка для поля ввода
-        url_label = tk.Label(
-            url_frame,
+        self.url_label = tk.Label(
+            self.url_frame,
             text="URL сайта:",
             font=("Arial", 14),
             bg="#2b2b2b",
             fg="white"
         )
-        url_label.pack(pady=(20, 10))
+        self.url_label.pack(pady=(20, 10))
         
         # Поле ввода URL
         self.url_entry = tk.Entry(
-            url_frame,
+            self.url_frame,
             font=("Arial", 14),
             bg="#3b3b3b",
             fg="white",
@@ -187,7 +260,7 @@ class MainWindow:
         
         # Кнопка открытия сайта
         self.open_button = tk.Button(
-            url_frame,
+            self.url_frame,
             text="Открыть сайт",
             font=("Arial", 14, "bold"),
             bg="#0078d4",
@@ -199,6 +272,21 @@ class MainWindow:
             command=self._open_website
         )
         self.open_button.pack(pady=(10, 20), padx=20, fill="x", ipady=8)
+        
+        # Кнопка "Назад"
+        self.back_button = tk.Button(
+            self.url_frame,
+            text="Назад",
+            font=("Arial", 14),
+            bg="gray",
+            fg="white",
+            activebackground="darkgray",
+            activeforeground="white",
+            relief="flat",
+            cursor="hand2",
+            command=self._show_main_menu
+        )
+        self.back_button.pack(pady=(0, 20), padx=20, fill="x", ipady=6)
         
         # Статус
         self.status_label = tk.Label(
@@ -219,6 +307,26 @@ class MainWindow:
             fg="gray"
         )
         version.pack(side="bottom", pady=20)
+    
+    def _show_main_menu(self):
+        """Показать главное меню (кнопки выбора режима)"""
+        # Скрываем фрейм URL
+        self.url_frame.pack_forget()
+        # Показываем кнопки режима
+        self.mode_frame.pack(pady=50, padx=40, fill="x")
+    
+    def _show_clicker_mode(self):
+        """Показать режим Кликер (поле ввода URL)"""
+        # Скрываем кнопки режима
+        self.mode_frame.pack_forget()
+        # Показываем фрейм URL
+        self.url_frame.pack(pady=40, padx=40, fill="x")
+    
+    def _open_simple_chat(self):
+        """Открыть простой чат без кликера"""
+        if not self.simple_chat_window:
+            self.simple_chat_window = ChatWindow(self.root, clicker=None)
+        self.simple_chat_window.show()
     
     def _open_website(self):
         """Открытие сайта в браузере"""

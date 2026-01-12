@@ -170,9 +170,12 @@ class AIController:
 Доступные команды:
 1. click - клик по элементу
    {"action": "click", "selector": "селектор", "method": "css|xpath|id|name|class|tag|text"}
+   ДОПУСТИМЫЕ МЕТОДЫ: только "css", "xpath", "id", "name", "class", "tag", "text"
+   ЗАПРЕЩЕНО использовать другие методы (js, javascript, query и т.д.)
 
 2. type - ввод текста в поле
    {"action": "type", "selector": "селектор", "value": "текст для ввода", "method": "css|xpath|id|name|class|tag", "clear_first": true, "press_enter": false}
+   ДОПУСТИМЫЕ МЕТОДЫ: только "css", "xpath", "id", "name", "class", "tag" (НЕ "text")
    Пример: {"action": "type", "selector": "input[name='username']", "value": "qwerqwer", "method": "css"}
 
 3. scroll - прокрутка страницы
@@ -186,9 +189,11 @@ class AIController:
 
 6. get_text - получение текста элемента
    {"action": "get_text", "selector": "селектор", "method": "css|xpath|id|name|class|tag"}
+   ДОПУСТИМЫЕ МЕТОДЫ: только "css", "xpath", "id", "name", "class", "tag"
 
 7. get_attribute - получение атрибута элемента
    {"action": "get_attribute", "selector": "селектор", "value": "название атрибута", "method": "css|xpath|id|name|class|tag"}
+   ДОПУСТИМЫЕ МЕТОДЫ: только "css", "xpath", "id", "name", "class", "tag"
 
 8. screenshot - скриншот страницы
    {"action": "screenshot", "filename": "screenshot.png"}
@@ -198,6 +203,9 @@ class AIController:
 - Ошибка: {"error": "подробное объяснение проблемы"} - если элемент не найден, инструкция неясна и т.д.
 
 ПРАВИЛА ВЫБОРА МЕТОДА СЕЛЕКТОРА (КРИТИЧЕСКИ ВАЖНО!):
+ДОПУСТИМЫЕ МЕТОДЫ (ТОЛЬКО ЭТИ!): "css", "xpath", "id", "name", "class", "tag", "text"
+ЗАПРЕЩЕНО использовать другие методы (js, javascript, query, querySelector и т.д.) - они НЕ ПОДДЕРЖИВАЮТСЯ!
+
 - CSS селекторы (method: "css"): 
   * Начинаются с # (id) или . (class): "#login-form", ".button"
   * Содержат []: "input[name='username']", "#form input[type='text']"
@@ -209,18 +217,19 @@ class AIController:
   * Содержат @: "//input[@name='username']"
   * Используй только для сложных поисков, если CSS не подходит
   
-- Другие методы:
+- Другие методы (ТОЛЬКО ЭТИ!):
   * method: "id" - только для простого ID без #: {"selector": "login-form", "method": "id"}
   * method: "name" - только для атрибута name: {"selector": "username", "method": "name"}
   * method: "class" - только для одного класса без .: {"selector": "button", "method": "class"}
   * method: "tag" - только для тега: {"selector": "button", "method": "tag"}
-  * method: "text" - для поиска по тексту элемента (только для click): {"selector": "Войти", "method": "text"}
+  * method: "text" - для поиска по тексту элемента (ТОЛЬКО для click): {"selector": "Войти", "method": "text"}
 
 ПРАВИЛА:
 - Будь точным в селекторах - используй ID, name или CSS селекторы когда возможно
 - Если текст кнопки/элемента указан в инструкции - используй method: "text" и в selector укажи этот текст
 - Для форм используй CSS селекторы: "input[name='username']", "#login-form input[type='password']"
-- НИКОГДА не используй XPath для CSS селекторов! Если видишь #, . или [] - используй method: "css" """
+- НИКОГДА не используй XPath для CSS селекторов! Если видишь #, . или [] - используй method: "css"
+- НИКОГДА не используй методы "js", "javascript", "query" и т.д. - они НЕ РАБОТАЮТ! Используй ТОЛЬКО допустимые методы: "css", "xpath", "id", "name", "class", "tag", "text" """
 
         user_prompt = user_message
         
