@@ -19,9 +19,13 @@ class APIClient:
         """
         self.base_url = base_url or os.getenv(
             "API_BASE_URL",
-            "http://localhost:8000"  # По умолчанию локальный сервер для разработки
+            "https://web-click-pro-production.up.railway.app"  # Railway бэкенд
         )
         self.base_url = self.base_url.rstrip("/")
+        
+        # Добавляем https:// если протокол не указан
+        if not self.base_url.startswith(("http://", "https://")):
+            self.base_url = "https://" + self.base_url
         self.session = requests.Session()
         self.session.headers.update({
             "Content-Type": "application/json",
