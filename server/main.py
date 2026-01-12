@@ -26,9 +26,16 @@ app.add_middleware(
 )
 
 # Подключение к MongoDB
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017/")
+MONGODB_URL = os.getenv("MONGODB_URL")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "clicker_db")
 
+if not MONGODB_URL:
+    raise ValueError(
+        "MONGODB_URL environment variable is not set! "
+        "Please add MongoDB service in Railway and ensure MONGODB_URL is configured."
+    )
+
+print(f"[INFO] Connecting to MongoDB: {MONGODB_URL[:20]}...")  # Не показываем полный URL в логах
 client = MongoClient(MONGODB_URL)
 db: Database = client[DATABASE_NAME]
 
@@ -230,14 +237,16 @@ def health_check():
         return {
             "status": "ok",
             "version": "1.0.0",
-            "database": "connected"
+            "database": "connected",
+            "mongodb_url_configured": bool(MONGODB_URL)
         }
     except Exception as e:
         return {
             "status": "error",
             "version": "1.0.0",
             "database": "disconnected",
-            "error": str(e)
+            "mongodb_url_configured": bool(MONGODB_URL),
+            "error": str(e)[:200]  # Ограничиваем длину ошибки
         }
 
 
