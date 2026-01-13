@@ -126,6 +126,18 @@ class ChatWindow:
                 width=100
             )
             self.send_button.pack(side="right", padx=5)
+            
+            # Кнопка "Назад"
+            self.back_button = ctk.CTkButton(
+                self.window,
+                text="Назад",
+                font=ctk.CTkFont(size=14),
+                height=35,
+                command=self._go_back,
+                fg_color="gray",
+                hover_color="darkgray"
+            )
+            self.back_button.pack(pady=(0, 10), padx=10, fill="x")
         else:
             # Обычный Tkinter
             title_text = "Автоматизация сайта" if self.clicker else "Чат с ИИ"
@@ -177,6 +189,21 @@ class ChatWindow:
                 font=("Arial", 12)
             )
             self.send_button.pack(side="right", padx=5)
+            
+            # Кнопка "Назад"
+            self.back_button = tk.Button(
+                self.window,
+                text="Назад",
+                font=("Arial", 14),
+                bg="gray",
+                fg="white",
+                activebackground="darkgray",
+                activeforeground="white",
+                relief="flat",
+                cursor="hand2",
+                command=self._go_back
+            )
+            self.back_button.pack(pady=(0, 10), padx=10, fill="x", ipady=6)
     
     def _create_scenario_widgets_ctk(self):
         """Создание виджетов управления сценариями (CustomTkinter)"""
@@ -559,6 +586,10 @@ class ChatWindow:
             self.window.after(0, update_ui)
         else:
             self.window.after(0, update_ui)
+    
+    def _go_back(self):
+        """Вернуться назад (скрыть окно чата)"""
+        self.window.withdraw()  # Скрываем окно
     
     def show(self):
         """Показать окно"""

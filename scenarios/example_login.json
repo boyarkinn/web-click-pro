@@ -13,12 +13,14 @@
     },
     {
       "action": "type",
-      "field": "логин",
+      "selector": "#identifier",
+      "method": "css",
       "value": "qwerqwer"
     },
     {
       "action": "type",
-      "field": "пароль",
+      "selector": "#password",
+      "method": "css",
       "value": "qwer1234"
     },
     {

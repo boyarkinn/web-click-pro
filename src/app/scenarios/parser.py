@@ -15,6 +15,7 @@ class ScenarioParser:
     VALID_ACTIONS = [
         'navigate', 'click', 'type', 'wait', 'scroll',
         'get_text', 'get_attribute', 'screenshot',
+        'ai_analyze',  # Анализ текста/контента через AI
         'repeat'
     ]
     

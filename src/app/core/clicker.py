@@ -269,6 +269,51 @@ class WebClicker:
             print(f"[ERROR] type_text: Traceback: {traceback.format_exc()}")
             return False
     
+    def type_text_direct(self, text: str, press_enter: bool = False):
+        """
+        Ввод текста напрямую через клавиатуру в активный элемент (для contenteditable)
+        
+        Args:
+            text: Текст для ввода
+            press_enter: Нажать Enter после ввода
+            
+        Returns:
+            True если успешно, False иначе
+        """
+        if not self.driver:
+            print(f"[ERROR] type_text_direct: Браузер не запущен")
+            return False
+        
+        try:
+            from selenium.webdriver.common.action_chains import ActionChains
+            
+            # Получаем активный элемент (body или текущий фокус)
+            active_element = self.driver.switch_to.active_element
+            
+            print(f"[DEBUG] type_text_direct: Ввод текста через клавиатуру: '{text[:50]}...'")
+            
+            # Используем ActionChains для более надежного ввода
+            actions = ActionChains(self.driver)
+            actions.send_keys(text)
+            if press_enter:
+                actions.send_keys(Keys.RETURN)
+            actions.perform()
+            
+            print(f"[OK] Текст введен через клавиатуру: {text[:50]}...")
+            return True
+        except Exception as e:
+            print(f"[ERROR] type_text_direct: Ошибка при вводе текста: {e}")
+            # Fallback - пробуем через driver напрямую
+            try:
+                self.driver.switch_to.active_element.send_keys(text)
+                if press_enter:
+                    self.driver.switch_to.active_element.send_keys(Keys.RETURN)
+                print(f"[OK] Текст введен через fallback метод")
+                return True
+            except Exception as e2:
+                print(f"[ERROR] type_text_direct: Fallback тоже не сработал: {e2}")
+                return False
+    
     def get_text(self, selector: str, by: By = By.CSS_SELECTOR) -> Optional[str]:
         """
         Получение текста элемента

@@ -343,6 +343,12 @@ class ScenarioExecutor:
                 self.error_callback("AI контроллер не инициализирован")
             return False
         
+        action = step.get('action')
+        
+        # Специальная обработка для ai_analyze
+        if action == 'ai_analyze':
+            return self._execute_ai_analyze(step)
+        
         # Определяем, нужно ли использовать AI или прямое выполнение
         use_ai = self._should_use_ai(step)
         
@@ -357,11 +363,17 @@ class ScenarioExecutor:
         """
         Определение, нужно ли использовать AI для выполнения шага
         
-        Логика гибридного подхода:
-        - Если method == "text" → использовать AI (гибкий поиск по тексту)
-        - Если action == "type" и указан field (текстовое описание) → использовать AI
-        - Если action == "click" и method == "text" → использовать AI
+        ВАЖНО: Для сценариев AI используется минимально - только когда действительно необходимо.
+        Executor уже поддерживает поиск по тексту через XPath, поэтому method="text" 
+        выполняется напрямую без AI.
+        
+        Логика для сценариев:
+        - method == "text" → прямое выполнение (executor использует XPath)
+        - action == "type" с field (без selector) → использовать AI (нужен анализ страницы)
         - В остальных случаях → прямое выполнение
+        
+        Примечание: AI используется в основном для интерактивного режима (чат).
+        Для сценариев предпочтительно использовать четкие селекторы для скорости и надежности.
         
         Args:
             step: Шаг сценария
@@ -377,11 +389,18 @@ class ScenarioExecutor:
         if action in direct_actions:
             return False
         
-        # Для click и type с method == "text" → использовать AI
-        if method == 'text':
+        # ai_analyze всегда использует AI
+        if action == 'ai_analyze':
             return True
         
-        # Для type с field (текстовое описание поля) → использовать AI
+        # Для method == "text" → прямое выполнение (executor использует XPath: //*[text()='...'])
+        # Это работает для кнопок, ссылок и других элементов с текстом
+        # НЕ используем AI, так как executor уже умеет искать по тексту
+        if method == 'text':
+            return False
+        
+        # Для type с field (текстовое описание поля БЕЗ selector) → использовать AI
+        # AI нужен для анализа страницы и поиска поля по label, placeholder и т.д.
         if action == 'type' and 'field' in step and 'selector' not in step:
             return True
         
@@ -545,6 +564,92 @@ class ScenarioExecutor:
                 self.error_callback(error_msg)
             return False
     
+    def _execute_ai_analyze(self, step: Dict[str, Any]) -> bool:
+        """
+        Выполнение AI анализа текста/контента
+        
+        Args:
+            step: Шаг с действием ai_analyze
+            
+        Returns:
+            True если анализ выполнен успешно
+        """
+        prompt = step.get('prompt')
+        text = step.get('text')
+        selector = step.get('selector')
+        
+        # Получаем текст для анализа
+        text_to_analyze = None
+        
+        if text:
+            # Текст указан напрямую
+            text_to_analyze = text
+        elif selector:
+            # Нужно получить текст из элемента
+            method = step.get('method', 'css')
+            try:
+                from selenium.webdriver.common.by import By
+                method_map = {
+                    'css': By.CSS_SELECTOR,
+                    'xpath': By.XPATH,
+                    'id': By.ID,
+                    'name': By.NAME,
+                    'class': By.CLASS_NAME,
+                    'tag': By.TAG_NAME
+                }
+                by = method_map.get(method, By.CSS_SELECTOR)
+                
+                element = self.clicker.find_element(selector, by)
+                if element:
+                    text_to_analyze = element.text
+                else:
+                    error_msg = f"Не удалось найти элемент для анализа: {selector}"
+                    logger.error(error_msg)
+                    if self.error_callback:
+                        self.error_callback(error_msg)
+                    return False
+            except Exception as e:
+                error_msg = f"Ошибка при получении текста из элемента: {str(e)}"
+                logger.error(error_msg)
+                if self.error_callback:
+                    self.error_callback(error_msg)
+                return False
+        else:
+            error_msg = "ai_analyze требует либо 'text', либо 'selector'"
+            logger.error(error_msg)
+            if self.error_callback:
+                self.error_callback(error_msg)
+            return False
+        
+        # Формируем запрос для AI
+        ai_prompt = f"{prompt}\n\nТекст для анализа:\n{text_to_analyze}"
+        
+        try:
+            # Выполняем анализ через AI (без контекста страницы, так как текст уже получен)
+            result = self.ai_controller.llm_client.chat(
+                ai_prompt,
+                system_prompt="Ты помощник для анализа текста. Анализируй текст и отвечай на вопросы пользователя кратко и точно.",
+                max_tokens=300
+            )
+            
+            if result:
+                logger.info(f"AI анализ выполнен: {result[:100]}...")
+                # Результат можно использовать дальше, но пока просто логируем
+                return True
+            else:
+                error_msg = "AI не вернул результат анализа"
+                logger.error(error_msg)
+                if self.error_callback:
+                    self.error_callback(error_msg)
+                return False
+                
+        except Exception as e:
+            error_msg = f"Ошибка при выполнении AI анализа: {str(e)}"
+            logger.exception(error_msg)
+            if self.error_callback:
+                self.error_callback(error_msg)
+            return False
+    
     def _step_to_ai_instruction(self, step: Dict[str, Any]) -> Optional[str]:
         """
         Преобразование шага сценария в текстовую инструкцию для AI
@@ -625,6 +730,9 @@ class ScenarioExecutor:
                 command_dict["clear_first"] = step["clear_first"]
             if "press_enter" in step:
                 command_dict["press_enter"] = step["press_enter"]
+            # Поддержка прямого ввода через клавиатуру (для contenteditable)
+            if "use_keyboard" in step:
+                command_dict["use_keyboard"] = step["use_keyboard"]
             
         elif action == 'wait':
             if "seconds" in step:
@@ -687,5 +795,10 @@ class ScenarioExecutor:
                 return "Ожидание элемента"
         elif action == 'repeat':
             return f"Цикл ({step.get('type', '')})"
+        elif action == 'ai_analyze':
+            prompt = step.get('prompt', '')
+            if len(prompt) > 50:
+                prompt = prompt[:50] + '...'
+            return f"AI анализ: {prompt}"
         else:
             return f"{action}"

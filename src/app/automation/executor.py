@@ -120,11 +120,25 @@ class CommandExecutor:
     
     def _execute_type(self, command_dict: Dict[str, Any]) -> Tuple[bool, Optional[str], None]:
         """Выполнение команды ввода текста"""
-        selector = command_dict["selector"]
+        selector = command_dict.get("selector")
         value = command_dict["value"]
         method = SelectorMethod(command_dict.get("method", "css"))
         clear_first = command_dict.get("clear_first", True)
         press_enter = command_dict.get("press_enter", False)
+        use_keyboard = command_dict.get("use_keyboard", False)  # Прямой ввод через клавиатуру
+        
+        # Если use_keyboard=True, используем прямой ввод через клавиатуру (для contenteditable)
+        if use_keyboard or selector == "keyboard" or selector == "active":
+            print(f"[DEBUG] _execute_type: Прямой ввод через клавиатуру (для contenteditable элементов)")
+            success = self.clicker.type_text_direct(value, press_enter=press_enter)
+            if success:
+                message = f"Текст введен через клавиатуру: {value[:50]}..."
+                print(f"[DEBUG] _execute_type: Команда type выполнена успешно")
+                return True, message, None
+            else:
+                error_msg = "Не удалось ввести текст через клавиатуру"
+                print(f"[ERROR] _execute_type: Команда type не выполнена: {error_msg}")
+                return False, error_msg, None
         
         print(f"[DEBUG] _execute_type: Выполнение команды type - selector='{selector}', method={method.value}, value_length={len(value)}, clear_first={clear_first}")
         

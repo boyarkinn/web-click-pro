@@ -1,0 +1,40 @@
+{
+  "name": "Запись в Google Docs (цикл)",
+  "description": "Открывает Google Docs документ и в цикле вписывает текст. Работает до остановки пользователем.",
+  "version": "1.0",
+  "steps": [
+    {
+      "action": "navigate",
+      "url": "https://docs.google.com/document/d/1EJuX5-2rAfYe0Sz95GyxyJOHf5WaD8zcSenMRiHJrJw/edit?usp=sharing"
+    },
+    {
+      "action": "wait",
+      "seconds": 8
+    },
+    {
+      "action": "repeat",
+      "type": "until_stopped",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "body",
+          "method": "css"
+        },
+        {
+          "action": "wait",
+          "seconds": 1
+        },
+        {
+          "action": "type",
+          "selector": "keyboard",
+          "use_keyboard": true,
+          "value": "Запись из цикла\n"
+        },
+        {
+          "action": "wait",
+          "seconds": 2
+        }
+      ]
+    }
+  ]
+}

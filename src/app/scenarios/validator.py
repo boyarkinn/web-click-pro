@@ -13,6 +13,7 @@ class ScenarioValidator:
     VALID_ACTIONS = [
         'navigate', 'click', 'type', 'wait', 'scroll',
         'get_text', 'get_attribute', 'screenshot',
+        'ai_analyze',  # Анализ текста/контента через AI
         'repeat'
     ]
     
@@ -341,5 +342,45 @@ class ScenarioValidator:
                     return False, "Поле 'filename' должно быть строкой"
                 if not filename.strip():
                     return False, "Поле 'filename' не может быть пустым"
+        
+        elif action == 'ai_analyze':
+            # AI анализ текста/контента
+            if 'prompt' not in step:
+                return False, "Действие 'ai_analyze' требует поле 'prompt' (инструкция для AI)"
+            
+            prompt = step['prompt']
+            if not isinstance(prompt, str):
+                return False, "Поле 'prompt' должно быть строкой"
+            if not prompt.strip():
+                return False, "Поле 'prompt' не может быть пустым"
+            
+            # Должен быть либо text, либо selector
+            has_text = 'text' in step
+            has_selector = 'selector' in step
+            
+            if not has_text and not has_selector:
+                return False, "Действие 'ai_analyze' требует поле 'text' (текст для анализа) или 'selector' (получить текст из элемента)"
+            
+            # Проверка text
+            if has_text:
+                text = step['text']
+                if not isinstance(text, str):
+                    return False, "Поле 'text' должно быть строкой"
+            
+            # Проверка selector
+            if has_selector:
+                selector = step['selector']
+                if not isinstance(selector, str):
+                    return False, "Поле 'selector' должно быть строкой"
+                if not selector.strip():
+                    return False, "Поле 'selector' не может быть пустым"
+                
+                # Проверка метода селектора (если указан)
+                if 'method' in step:
+                    method = step['method']
+                    if not isinstance(method, str):
+                        return False, "Поле 'method' должно быть строкой"
+                    if method not in ScenarioValidator.VALID_METHODS:
+                        return False, f"Неизвестный метод селектора: {method}"
         
         return True, None
