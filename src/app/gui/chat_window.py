@@ -23,12 +23,6 @@ try:
 except ImportError:
     LOCAL_LLM_AVAILABLE = False
 
-try:
-    from app.ai.cocoon_client import CocoonClient, create_cocoon_client
-    COCOON_AVAILABLE = True
-except ImportError:
-    COCOON_AVAILABLE = False
-
 # Импорт automation
 from app.automation.ai_controller import AIController
 from app.core.clicker import WebClicker
@@ -54,7 +48,7 @@ class ChatWindow:
         self.scenario_file_path = None
         self.scenario_thread = None
         
-        # Создаем LLM клиент (COCOON или локальный)
+        # Создаем LLM клиент (локальный)
         self.llm_client = self._create_llm_client()
         
         # Инициализируем AI контроллер для автоматизации (если есть clicker и локальный клиент)
@@ -584,23 +578,14 @@ class ChatWindow:
             self.window.after(0, update_ui)
     
     def _create_llm_client(self):
-        """Создание LLM клиента (COCOON или локальный)"""
+        """Создание LLM клиента (локальный)"""
         # Проверяем переменную окружения для выбора клиента
-        llm_type = os.getenv("LLM_TYPE", "cocoon").lower()  # По умолчанию COCOON
-        
-        # Пробуем создать COCOON клиент
-        if llm_type == "cocoon" and COCOON_AVAILABLE:
-            try:
-                client = create_cocoon_client()
-                if client and client.is_configured():
-                    print("[OK] COCOON клиент инициализирован")
-                    return client
-                else:
-                    print("[WARNING] COCOON клиент недоступен, пробуем локальный...")
-            except Exception as e:
-                print(f"[WARNING] Ошибка при создании COCOON клиента: {e}")
-        
-        # Fallback на локальный клиент
+        llm_type = os.getenv("LLM_TYPE", "local").lower()
+
+        if llm_type not in {"local", "local_llm"}:
+            print("[WARNING] Поддерживается только локальный LLM. Использую local.")
+
+        # Создаем локальный клиент
         if LOCAL_LLM_AVAILABLE:
             try:
                 client = create_local_llm_client()

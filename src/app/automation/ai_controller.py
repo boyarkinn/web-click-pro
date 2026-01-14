@@ -19,13 +19,6 @@ except ImportError:
     LOCAL_LLM_AVAILABLE = False
     LocalLLMClient = None
 
-try:
-    from ..ai.cocoon_client import CocoonClient
-    COCOON_AVAILABLE = True
-except ImportError:
-    COCOON_AVAILABLE = False
-    CocoonClient = None
-
 
 class AIController:
     """Контроллер для работы с ИИ и выполнения команд"""
@@ -36,7 +29,7 @@ class AIController:
         
         Args:
             clicker: Экземпляр WebClicker
-            llm_client: LLM клиент (LocalLLMClient или CocoonClient, обязательно)
+            llm_client: LLM клиент (LocalLLMClient, обязательно)
         """
         if not llm_client:
             raise ValueError("LLM клиент обязателен для работы автоматизации")
