@@ -1,0 +1,14 @@
+{
+  "is_test": false,
+  "is_testnet": false,
+  "http_port": 8081,
+  "rpc_port": 8082,
+  "proxy_connections": 1,
+  "ton_config_filename": "/opt/web-click-pro/server/cocoon-client/mainnet.cocoon.global.config.json",
+  "owner_address": "UQD-5ZxMgAjqC1rrP969gJxkG3OqRMJ0WfReUCTIXfvbQleN",
+  "root_contract_address": "EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k",
+  "node_wallet_key": "cCuC/VkwGVuhagOt+J2I7HcwAMaOC7MLTdx5iRo3usY=",
+  "connect_to_proxy_via": "",
+  "max_coefficient": 0,
+  "max_tokens": 0
+}

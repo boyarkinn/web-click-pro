@@ -1,0 +1,15 @@
+[Unit]
+Description=Cocoon Client Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/web-click-pro/server/cocoon-client
+ExecStart=/opt/web-click-pro/server/cocoon-client/cocoon-client --config /opt/web-click-pro/server/cocoon-client/client-config.json
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/cocoon-client.log
+StandardError=append:/var/log/cocoon-client.err.log
+
+[Install]
+WantedBy=multi-user.target
