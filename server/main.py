@@ -1,15 +1,14 @@
 """
-FastAPI сервер для Railway
-Подключается к MongoDB
+FastAPI сервер для VPS/самостоятельного хостинга
+Пока использует in-memory хранилище (без MongoDB)
 """
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from pymongo import MongoClient
-from pymongo.database import Database
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+from uuid import uuid4
 import os
 import uvicorn
 import base64
@@ -27,19 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключение к MongoDB
-MONGODB_URL = os.getenv("MONGODB_URL")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "clicker_db")
-
-if not MONGODB_URL:
-    raise ValueError(
-        "MONGODB_URL environment variable is not set! "
-        "Please add MongoDB service in Railway and ensure MONGODB_URL is configured."
-    )
-
-print(f"[INFO] Connecting to MongoDB: {MONGODB_URL[:20]}...")  # Не показываем полный URL в логах
-client = MongoClient(MONGODB_URL)
-db: Database = client[DATABASE_NAME]
+# Временное in-memory хранилище (до подключения БД на VPS)
+ACCOUNTS: dict[str, dict] = {}
+TASKS: dict[str, dict] = {}
 
 # Инициализация OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -96,14 +85,14 @@ class TaskResponse(BaseModel):
 @app.get("/api/accounts", response_model=List[AccountResponse])
 def get_accounts(skip: int = 0, limit: int = 100):
     """Получить список аккаунтов"""
-    accounts = list(db.accounts.find().skip(skip).limit(limit))
+    accounts = list(ACCOUNTS.values())[skip: skip + limit]
     return [format_account(acc) for acc in accounts]
 
 
 @app.get("/api/accounts/{account_id}", response_model=AccountResponse)
 def get_account(account_id: str):
     """Получить аккаунт по ID"""
-    account = db.accounts.find_one({"_id": account_id})
+    account = ACCOUNTS.get(account_id)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     return format_account(account)
@@ -116,37 +105,32 @@ def create_account(account: AccountCreate):
     account_dict["is_active"] = True
     account_dict["created_at"] = datetime.utcnow()
     account_dict["updated_at"] = datetime.utcnow()
-    
-    result = db.accounts.insert_one(account_dict)
-    account_dict["_id"] = result.inserted_id
-    
+    account_dict["id"] = str(uuid4())
+    ACCOUNTS[account_dict["id"]] = account_dict
+
     return format_account(account_dict)
 
 
 @app.put("/api/accounts/{account_id}", response_model=AccountResponse)
 def update_account(account_id: str, account: AccountCreate):
     """Обновить аккаунт"""
+    existing = ACCOUNTS.get(account_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Account not found")
+
     account_dict = account.dict()
     account_dict["updated_at"] = datetime.utcnow()
-    
-    result = db.accounts.update_one(
-        {"_id": account_id},
-        {"$set": account_dict}
-    )
-    
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Account not found")
-    
-    updated = db.accounts.find_one({"_id": account_id})
+    updated = {**existing, **account_dict}
+    ACCOUNTS[account_id] = updated
     return format_account(updated)
 
 
 @app.delete("/api/accounts/{account_id}")
 def delete_account(account_id: str):
     """Удалить аккаунт"""
-    result = db.accounts.delete_one({"_id": account_id})
-    if result.deleted_count == 0:
+    if account_id not in ACCOUNTS:
         raise HTTPException(status_code=404, detail="Account not found")
+    ACCOUNTS.pop(account_id, None)
     return {"message": "Account deleted"}
 
 
@@ -155,14 +139,14 @@ def delete_account(account_id: str):
 @app.get("/api/tasks", response_model=List[TaskResponse])
 def get_tasks(skip: int = 0, limit: int = 100):
     """Получить список задач"""
-    tasks = list(db.tasks.find().skip(skip).limit(limit))
+    tasks = list(TASKS.values())[skip: skip + limit]
     return [format_task(task) for task in tasks]
 
 
 @app.get("/api/tasks/{task_id}", response_model=TaskResponse)
 def get_task(task_id: str):
     """Получить задачу по ID"""
-    task = db.tasks.find_one({"_id": task_id})
+    task = TASKS.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return format_task(task)
@@ -176,37 +160,32 @@ def create_task(task: TaskCreate):
     task_dict["run_count"] = 0
     task_dict["created_at"] = datetime.utcnow()
     task_dict["updated_at"] = datetime.utcnow()
-    
-    result = db.tasks.insert_one(task_dict)
-    task_dict["_id"] = result.inserted_id
-    
+    task_dict["id"] = str(uuid4())
+    TASKS[task_dict["id"]] = task_dict
+
     return format_task(task_dict)
 
 
 @app.put("/api/tasks/{task_id}", response_model=TaskResponse)
 def update_task(task_id: str, task: TaskCreate):
     """Обновить задачу"""
+    existing = TASKS.get(task_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Task not found")
+
     task_dict = task.dict()
     task_dict["updated_at"] = datetime.utcnow()
-    
-    result = db.tasks.update_one(
-        {"_id": task_id},
-        {"$set": task_dict}
-    )
-    
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    updated = db.tasks.find_one({"_id": task_id})
+    updated = {**existing, **task_dict}
+    TASKS[task_id] = updated
     return format_task(updated)
 
 
 @app.delete("/api/tasks/{task_id}")
 def delete_task(task_id: str):
     """Удалить задачу"""
-    result = db.tasks.delete_one({"_id": task_id})
-    if result.deleted_count == 0:
+    if task_id not in TASKS:
         raise HTTPException(status_code=404, detail="Task not found")
+    TASKS.pop(task_id, None)
     return {"message": "Task deleted"}
 
 
@@ -215,7 +194,7 @@ def delete_task(task_id: str):
 def format_account(account: dict) -> dict:
     """Форматирование аккаунта для ответа"""
     return {
-        "id": str(account["_id"]),
+        "id": str(account["id"]),
         "name": account["name"],
         "login": account["login"],
         "website": account["website"],
@@ -227,7 +206,7 @@ def format_account(account: dict) -> dict:
 def format_task(task: dict) -> dict:
     """Форматирование задачи для ответа"""
     return {
-        "id": str(task["_id"]),
+        "id": str(task["id"]),
         "name": task["name"],
         "description": task.get("description"),
         "account_id": str(task["account_id"]) if task.get("account_id") else None,
@@ -244,25 +223,12 @@ def format_task(task: dict) -> dict:
 @app.get("/api/health")
 def health_check():
     """Проверка работоспособности API"""
-    try:
-        # Проверка подключения к MongoDB
-        client.admin.command('ping')
-        return {
-            "status": "ok",
-            "version": "1.0.0",
-            "database": "connected",
-            "mongodb_url_configured": bool(MONGODB_URL),
-            "openai_configured": bool(openai_client)
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "version": "1.0.0",
-            "database": "disconnected",
-            "mongodb_url_configured": bool(MONGODB_URL),
-            "openai_configured": bool(openai_client),
-            "error": str(e)[:200]  # Ограничиваем длину ошибки
-        }
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "database": "in_memory",
+        "openai_configured": bool(openai_client)
+    }
 
 
 # ========== AI ENDPOINTS ==========

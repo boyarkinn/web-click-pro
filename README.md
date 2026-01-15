@@ -10,8 +10,8 @@ clicker-app/
 │   ├── main.py            # Точка входа
 │   └── app/               # Основной пакет
 │       ├── core/          # Ядро (кликер)
-│       └── api/           # API клиент для Railway
-├── server/                 # Облачный сервер (Railway)
+│       └── api/           # API клиент для бэкенда
+├── server/                 # Облачный сервер (VPS/самостоятельный хостинг)
 │   ├── main.py            # FastAPI сервер
 │   └── requirements.txt   # Зависимости для сервера
 ├── examples/               # Примеры использования
@@ -30,7 +30,7 @@ clicker-app/
 - ✅ Прокрутка страницы
 - ✅ Выполнение JavaScript кода
 - ✅ Создание скриншотов
-- ✅ Синхронизация с облачным бэкендом (Railway)
+- ✅ Синхронизация с облачным бэкендом
 - ✅ Управление аккаунтами и задачами
 
 ## Установка
@@ -113,7 +113,7 @@ clicker.close()
 ```python
 from app.api.client import APIClient
 
-client = APIClient("https://your-app.railway.app")
+client = APIClient("http://your-server.example.com")
 
 # Получить список аккаунтов
 accounts = client.get_accounts()
@@ -127,9 +127,9 @@ new_account = client.create_account(
 )
 ```
 
-## Сервер (Railway)
+## Сервер (VPS)
 
-Сервер находится в папке `server/` и деплоится на Railway.
+Сервер находится в папке `server/` и деплоится на VPS/самостоятельный хостинг.
 
 Для локального запуска:
 ```bash
