@@ -11,15 +11,6 @@ from .validator import CommandValidator
 from .executor import CommandExecutor
 from ..core.clicker import WebClicker
 
-# Импорт LLM клиентов
-try:
-    from ..ai.local_llm_client import LocalLLMClient
-    LOCAL_LLM_AVAILABLE = True
-except ImportError:
-    LOCAL_LLM_AVAILABLE = False
-    LocalLLMClient = None
-
-
 class AIController:
     """Контроллер для работы с ИИ и выполнения команд"""
     
@@ -29,7 +20,7 @@ class AIController:
         
         Args:
             clicker: Экземпляр WebClicker
-            llm_client: LLM клиент (LocalLLMClient, обязательно)
+            llm_client: LLM клиент (обязательно)
         """
         if not llm_client:
             raise ValueError("LLM клиент обязателен для работы автоматизации")

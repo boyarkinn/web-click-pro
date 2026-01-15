@@ -17,11 +17,7 @@ except ImportError:
     USE_CUSTOM_TKINTER = False
 
 # Импорт LLM клиентов
-try:
-    from app.ai.local_llm_client import LocalLLMClient, create_local_llm_client
-    LOCAL_LLM_AVAILABLE = True
-except ImportError:
-    LOCAL_LLM_AVAILABLE = False
+from app.ai.remote_llm_client import RemoteLLMClient
 
 # Импорт automation
 from app.automation.ai_controller import AIController
@@ -48,10 +44,10 @@ class ChatWindow:
         self.scenario_file_path = None
         self.scenario_thread = None
         
-        # Создаем LLM клиент (локальный)
+        # Создаем LLM клиент (через бэкенд)
         self.llm_client = self._create_llm_client()
         
-        # Инициализируем AI контроллер для автоматизации (если есть clicker и локальный клиент)
+        # Инициализируем AI контроллер для автоматизации (если есть clicker и клиент)
         if self.clicker and self.llm_client:
             try:
                 self.ai_controller = AIController(self.clicker, llm_client=self.llm_client)
@@ -311,9 +307,9 @@ class ChatWindow:
         if not message:
             return
         
-        # Проверяем наличие модели
+        # Проверяем наличие клиента
         if not self.llm_client:
-            self._add_message("⚠ Ошибка: Локальная модель не настроена. Проверьте установку локальной модели (pip install torch transformers)", is_user=False)
+            self._add_message("⚠ Ошибка: AI сервер недоступен. Проверьте API_BASE_URL и что бэкенд запущен.", is_user=False)
             return
         
         self._add_message(message, is_user=True)
@@ -578,27 +574,16 @@ class ChatWindow:
             self.window.after(0, update_ui)
     
     def _create_llm_client(self):
-        """Создание LLM клиента (локальный)"""
-        # Проверяем переменную окружения для выбора клиента
-        llm_type = os.getenv("LLM_TYPE", "local").lower()
+        """Создание LLM клиента (через бэкенд)"""
+        try:
+            client = RemoteLLMClient()
+            if client.is_available():
+                print("[OK] AI клиент через бэкенд инициализирован")
+                return client
+            print("[WARNING] AI сервер недоступен (health_check не прошел)")
+        except Exception as e:
+            print(f"[WARNING] Ошибка при создании AI клиента: {e}")
 
-        if llm_type not in {"local", "local_llm"}:
-            print("[WARNING] Поддерживается только локальный LLM. Использую local.")
-
-        # Создаем локальный клиент
-        if LOCAL_LLM_AVAILABLE:
-            try:
-                client = create_local_llm_client()
-                if client:
-                    print("[OK] Локальный LLM клиент инициализирован")
-                    return client
-                else:
-                    print("[WARNING] Не удалось создать локальный LLM клиент")
-            except Exception as e:
-                print(f"[WARNING] Ошибка при создании локального LLM клиента: {e}")
-        else:
-            print("[ERROR] Локальный LLM клиент недоступен. Установите: pip install torch transformers")
-        
         return None
     
     def _go_back(self):
