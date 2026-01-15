@@ -12,10 +12,19 @@ from uuid import uuid4
 import os
 import uvicorn
 import base64
-import openai
+
+from cocoon_client import CocoonClient
+from dotenv import load_dotenv
 
 # Инициализация приложения
 app = FastAPI(title="Web Clicker API", version="1.0.0")
+
+# Загружаем переменные окружения из server/env или server/.env (если есть)
+env_dir = os.path.dirname(__file__)
+env_path = os.path.join(env_dir, "env")
+if not os.path.exists(env_path):
+    env_path = os.path.join(env_dir, ".env")
+load_dotenv(env_path)
 
 # CORS
 app.add_middleware(
@@ -30,16 +39,10 @@ app.add_middleware(
 ACCOUNTS: dict[str, dict] = {}
 TASKS: dict[str, dict] = {}
 
-# Инициализация OpenAI
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai_client = None
-
-if OPENAI_API_KEY:
-    import openai
-    openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
-    print("[OK] OpenAI клиент инициализирован")
-else:
-    print("[WARNING] OPENAI_API_KEY не установлен - AI функции недоступны")
+# Инициализация Cocoon
+COCOON_CHAT_MODEL = os.getenv("COCOON_CHAT_MODEL", "Qwen/Qwen3-32B")
+cocoon_client = CocoonClient()
+print(f"[OK] Cocoon клиент инициализирован: {cocoon_client.base_url}")
 
 
 # Pydantic модели
@@ -227,7 +230,7 @@ def health_check():
         "status": "ok",
         "version": "1.0.0",
         "database": "in_memory",
-        "openai_configured": bool(openai_client)
+        "cocoon_configured": bool(cocoon_client)
     }
 
 
@@ -245,9 +248,7 @@ class ChatResponse(BaseModel):
 
 @app.post("/api/ai/chat", response_model=ChatResponse)
 def ai_chat(request: ChatRequest):
-    """Чат с GPT"""
-    if not openai_client:
-        raise HTTPException(status_code=503, detail="OpenAI не настроен. Проверьте OPENAI_API_KEY")
+    """Чат с моделью Cocoon"""
     
     try:
         messages = []
@@ -255,18 +256,18 @@ def ai_chat(request: ChatRequest):
             messages.append({"role": "system", "content": request.system_prompt})
         messages.append({"role": "user", "content": request.message})
         
-        response = openai_client.chat.completions.create(
-            model="gpt-4",
+        response = cocoon_client.chat_completions(
+            model=COCOON_CHAT_MODEL,
             messages=messages,
-            max_tokens=1000
+            max_tokens=1000,
         )
         
         return ChatResponse(
-            response=response.choices[0].message.content,
+            response=response["choices"][0]["message"]["content"],
             success=True
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка при запросе к GPT: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при запросе к Cocoon: {str(e)}")
 
 
 class AnalyzeImageRequest(BaseModel):
@@ -276,83 +277,11 @@ class AnalyzeImageRequest(BaseModel):
 
 @app.post("/api/ai/analyze-image", response_model=ChatResponse)
 def ai_analyze_image(request: AnalyzeImageRequest):
-    """Анализ изображения через GPT-4 Vision"""
-    if not openai_client:
-        raise HTTPException(status_code=503, detail="OpenAI не настроен. Проверьте OPENAI_API_KEY")
-    
-    try:
-        import base64
-        import traceback
-        
-        # Определяем тип изображения
-        if request.image_base64.startswith("data:image/png"):
-            mime_type = "image/png"
-            image_data = request.image_base64.split(",", 1)[1]  # Используем split с maxsplit=1
-        elif request.image_base64.startswith("data:image/jpeg") or request.image_base64.startswith("data:image/jpg"):
-            mime_type = "image/jpeg"
-            image_data = request.image_base64.split(",", 1)[1]
-        else:
-            # Предполагаем base64 без префикса
-            mime_type = "image/png"
-            image_data = request.image_base64
-        
-        prompt = request.prompt or "Опиши что изображено на этом изображении"
-        
-        # Проверяем длину изображения (для отладки)
-        print(f"[DEBUG] Image data length: {len(image_data)}")
-        print(f"[DEBUG] MIME type: {mime_type}")
-        
-        # Пробуем использовать актуальную модель
-        try:
-            response = openai_client.chat.completions.create(
-                model="gpt-4o",  # Используем gpt-4o вместо gpt-4-vision-preview
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:{mime_type};base64,{image_data}"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=1000
-            )
-        except Exception as model_error:
-            # Если gpt-4o не работает, пробуем gpt-4-vision-preview
-            print(f"[WARNING] gpt-4o failed, trying gpt-4-vision-preview: {model_error}")
-            response = openai_client.chat.completions.create(
-                model="gpt-4-vision-preview",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:{mime_type};base64,{image_data}"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=1000
-            )
-        
-        return ChatResponse(
-            response=response.choices[0].message.content,
-            success=True
-        )
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(f"[ERROR] Full error trace:\n{error_trace}")
-        error_msg = f"Ошибка при анализе изображения: {str(e)}"
-        raise HTTPException(status_code=500, detail=error_msg)
+    """Анализ изображения пока не поддерживается"""
+    raise HTTPException(
+        status_code=501,
+        detail="Анализ изображений/видео пока не реализован. Используем только чат.",
+    )
 
 
 if __name__ == "__main__":
