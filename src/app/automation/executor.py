@@ -45,17 +45,22 @@ class CommandExecutor:
         Returns:
             Исправленный метод
         """
-        # Если селектор начинается с #, . или содержит [] - это CSS селектор
-        if selector.startswith("#") or selector.startswith(".") or "[" in selector or "]" in selector:
-            if method != SelectorMethod.CSS:
-                # Исправляем на CSS
-                return SelectorMethod.CSS
-        
         # Если селектор начинается с // или / - это XPath
         if selector.startswith("//") or selector.startswith("/"):
             if method != SelectorMethod.XPATH:
                 # Исправляем на XPath
                 return SelectorMethod.XPATH
+            return method
+        
+        # Если метод явно XPath - не переопределяем его
+        if method == SelectorMethod.XPATH:
+            return method
+        
+        # Если селектор начинается с #, . или содержит [] - это CSS селектор
+        if selector.startswith("#") or selector.startswith(".") or "[" in selector or "]" in selector:
+            if method != SelectorMethod.CSS:
+                # Исправляем на CSS
+                return SelectorMethod.CSS
         
         return method
     

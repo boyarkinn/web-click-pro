@@ -14,6 +14,7 @@ class ScenarioValidator:
         'navigate', 'click', 'type', 'wait', 'scroll',
         'get_text', 'get_attribute', 'screenshot',
         'ai_analyze',  # Анализ текста/контента через AI
+        'ai_decide',   # Решение на основе извлеченного контента
         'repeat'
     ]
     
@@ -92,6 +93,10 @@ class ScenarioValidator:
         if action == 'repeat':
             return ScenarioValidator.validate_repeat(step)
         
+        # Валидация действия 'ai_decide'
+        if action == 'ai_decide':
+            return ScenarioValidator.validate_ai_decide(step)
+        
         # Валидация обычных действий
         return ScenarioValidator.validate_regular_action(step, action)
     
@@ -165,6 +170,57 @@ class ScenarioValidator:
             is_valid, error = ScenarioValidator.validate_step(nested_step, step_index=i)
             if not is_valid:
                 return False, f"Ошибка во вложенном шаге {i + 1}: {error}"
+        
+        return True, None
+
+    @staticmethod
+    @staticmethod
+    def validate_ai_decide(step: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """
+        Валидация шага ai_decide
+        
+        Требует:
+        - prompt (строка)
+        - context_text или context_selector
+        - options или options_selector
+        - choice_steps или click_selector/options_selector для выполнения выбора
+        """
+        prompt = step.get('prompt')
+        if not prompt or not isinstance(prompt, str) or not prompt.strip():
+            return False, "Действие 'ai_decide' требует поле 'prompt' (строка)"
+        
+        if 'context_text' not in step and 'context_selector' not in step:
+            return False, "Действие 'ai_decide' требует 'context_text' или 'context_selector'"
+        
+        if 'options' not in step and 'options_selector' not in step:
+            return False, "Действие 'ai_decide' требует 'options' или 'options_selector'"
+        
+        if 'options' in step:
+            options = step.get('options')
+            if not isinstance(options, list) or not options:
+                return False, "Поле 'options' должно быть непустым массивом строк"
+        
+        if 'choice_steps' in step:
+            choice_steps = step.get('choice_steps')
+            if not isinstance(choice_steps, list) or not choice_steps:
+                return False, "Поле 'choice_steps' должно быть непустым массивом"
+            for i, choice in enumerate(choice_steps):
+                if not isinstance(choice, list):
+                    return False, f"choice_steps[{i}] должно быть массивом шагов"
+        
+        if 'choice_steps' not in step:
+            if 'click_selector' not in step and 'options_selector' not in step:
+                return False, "Для 'ai_decide' без choice_steps нужен click_selector или options_selector"
+        
+        # Проверка методов селекторов
+        for key in ['context_method', 'options_method', 'click_method']:
+            if key in step:
+                if step[key] not in ScenarioValidator.VALID_METHODS:
+                    return False, f"Недопустимый метод селектора в поле '{key}': {step[key]}"
+        
+        response_format = step.get('response_format')
+        if response_format and response_format not in ['index', 'text']:
+            return False, "response_format должен быть 'index' или 'text'"
         
         return True, None
     

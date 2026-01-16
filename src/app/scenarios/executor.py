@@ -41,6 +41,7 @@ class ScenarioExecutor:
         self.progress_callback: Optional[Callable] = None
         self.complete_callback: Optional[Callable] = None
         self.error_callback: Optional[Callable] = None
+        self.message_callback: Optional[Callable[[str], None]] = None
     
     def execute(self, scenario: Dict[str, Any]) -> bool:
         """
@@ -120,6 +121,10 @@ class ScenarioExecutor:
     def set_error_callback(self, callback: Callable):
         """Установка callback для ошибок"""
         self.error_callback = callback
+    
+    def set_message_callback(self, callback: Callable[[str], None]):
+        """Установка callback для сообщений"""
+        self.message_callback = callback
     
     def _count_steps(self, steps: List[Dict[str, Any]]) -> int:
         """
@@ -345,6 +350,10 @@ class ScenarioExecutor:
         
         action = step.get('action')
         
+        # Выполнение решения AI по извлеченному контенту
+        if action == 'ai_decide':
+            return self._execute_ai_decide(step)
+        
         # Специальная обработка для ai_analyze
         if action == 'ai_analyze':
             return self._execute_ai_analyze(step)
@@ -474,6 +483,177 @@ class ScenarioExecutor:
                 logger.info(f"Успешный fallback на прямое выполнение после исключения")
                 return True
             
+            if self.error_callback:
+                self.error_callback(error_msg)
+            return False
+    
+    def _execute_ai_decide(self, step: Dict[str, Any]) -> bool:
+        """
+        Выполнение решения AI на основе извлеченного контента
+        
+        Ожидается, что AI вернет номер выбранного варианта или его текст.
+        """
+        if not self.ai_controller or not self.ai_controller.llm_client:
+            error_msg = "AI клиент не инициализирован"
+            logger.error(error_msg)
+            if self.error_callback:
+                self.error_callback(error_msg)
+            return False
+        
+        # Извлекаем контекст (вопрос/описание)
+        context_text = step.get('context_text')
+        if not context_text and step.get('context_selector'):
+            context_text = self._extract_context_text(
+                step.get('context_selector'),
+                step.get('context_method', 'css')
+            )
+        
+        if not context_text:
+            error_msg = "Не удалось извлечь контекст для ai_decide"
+            logger.error(error_msg)
+            if self.error_callback:
+                self.error_callback(error_msg)
+            return False
+        
+        # Извлекаем варианты ответа
+        options = step.get('options')
+        option_elements = None
+        if not options and step.get('options_selector'):
+            option_elements = self._find_elements(
+                step.get('options_selector'),
+                step.get('options_method', 'css'),
+                visible_only=True
+            )
+            options = self._extract_options_text(option_elements)
+        
+        if not options:
+            error_msg = "Не удалось получить варианты для ai_decide"
+            logger.error(error_msg)
+            if self.error_callback:
+                self.error_callback(error_msg)
+            return False
+        
+        # Формируем запрос к AI
+        prompt = step.get('prompt', 'Выбери правильный вариант.')
+        options_lines = [f"{i + 1}) {opt}" for i, opt in enumerate(options)]
+        user_prompt = (
+            f"{prompt}\n\n"
+            f"Вопрос/контекст:\n{context_text}\n\n"
+            f"Варианты:\n" + "\n".join(options_lines) + "\n\n"
+            "Ответ: укажи только номер варианта."
+        )
+        self._emit_message(
+            "AI решение: отправлены данные\n"
+            f"Промпт: {prompt}\n"
+            f"Контекст:\n{context_text}\n"
+            "Варианты:\n" + "\n".join(options_lines)
+        )
+        
+        system_prompt = (
+            "Ты выбираешь один вариант ответа. "
+            "Верни только номер варианта (например, 2) без лишнего текста."
+        )
+        
+        max_retries = step.get('max_retries', 1)
+        response = None
+        choice_index = None
+        
+        for attempt in range(max_retries + 1):
+            try:
+                response = self.ai_controller.llm_client.chat(
+                    user_prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=50
+                )
+            except Exception as e:
+                error_msg = f"Ошибка при обращении к AI: {str(e)}"
+                logger.exception(error_msg)
+                if self.error_callback:
+                    self.error_callback(error_msg)
+                return False
+            
+            choice_index = self._parse_choice_index(response, options)
+            if choice_index is not None and 1 <= choice_index <= len(options):
+                break
+            
+            logger.warning(
+                "AI вернул недопустимый номер, повторяем запрос: "
+                f"ответ='{response}'"
+            )
+            self._emit_message(
+                "AI решение: некорректный ответ, повтор запроса\n"
+                f"Сырой ответ: {response}"
+            )
+            choice_index = None
+        
+        if choice_index is None:
+            logger.warning("AI не вернул корректный номер, выбираем первый вариант")
+            choice_index = 1
+        
+        logger.info(f"AI выбрал вариант: {choice_index}")
+        self._emit_message(
+            "AI решение: ответ\n"
+            f"Сырой ответ: {response}\n"
+            f"Выбранный вариант: {choice_index}"
+        )
+        
+        # Если заданы шаги для выбранного варианта - выполняем их
+        choice_steps = step.get('choice_steps')
+        if choice_steps:
+            if 1 <= choice_index <= len(choice_steps):
+                return self._execute_steps(choice_steps[choice_index - 1])
+            error_msg = f"Выбранный индекс вне диапазона choice_steps: {choice_index}"
+            logger.error(error_msg)
+            if self.error_callback:
+                self.error_callback(error_msg)
+            return False
+        
+        # Иначе кликаем по выбранному элементу
+        click_selector = step.get('click_selector') or step.get('options_selector')
+        click_method = step.get('click_method') or step.get('options_method', 'css')
+        if not click_selector:
+            error_msg = "Для ai_decide не указан click_selector/options_selector"
+            logger.error(error_msg)
+            if self.error_callback:
+                self.error_callback(error_msg)
+            return False
+        
+        click_elements = self._find_elements(click_selector, click_method, visible_only=True)
+        if not click_elements or choice_index < 1 or choice_index > len(click_elements):
+            error_msg = f"Не удалось найти элемент для выбора варианта {choice_index}"
+            logger.error(error_msg)
+            if self.error_callback:
+                self.error_callback(error_msg)
+            return False
+        
+        try:
+            element = click_elements[choice_index - 1]
+            target = element
+            try:
+                if element.tag_name.lower() == "input":
+                    label_el = self._find_associated_label(element)
+                    if label_el:
+                        target = label_el
+            except Exception:
+                pass
+            # Прокрутка в центр экрана, чтобы избежать перекрытия фиксированной шапкой
+            self.clicker.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+                target
+            )
+            try:
+                self.clicker.wait(0.2)
+            except Exception:
+                pass
+            try:
+                target.click()
+            except Exception:
+                # Фоллбэк: клик через JS (для перекрытий)
+                self.clicker.driver.execute_script("arguments[0].click();", target)
+            return True
+        except Exception as e:
+            error_msg = f"Ошибка клика по выбранному варианту: {str(e)}"
+            logger.exception(error_msg)
             if self.error_callback:
                 self.error_callback(error_msg)
             return False
@@ -623,6 +803,11 @@ class ScenarioExecutor:
         
         # Формируем запрос для AI
         ai_prompt = f"{prompt}\n\nТекст для анализа:\n{text_to_analyze}"
+        self._emit_message(
+            "AI анализ: отправлены данные\n"
+            f"Промпт: {prompt}\n"
+            f"Текст:\n{text_to_analyze}"
+        )
         
         try:
             # Выполняем анализ через AI (без контекста страницы, так как текст уже получен)
@@ -634,6 +819,7 @@ class ScenarioExecutor:
             
             if result:
                 logger.info(f"AI анализ выполнен: {result[:100]}...")
+                self._emit_message(f"AI анализ: ответ\n{result}")
                 # Результат можно использовать дальше, но пока просто логируем
                 return True
             else:
@@ -800,5 +986,146 @@ class ScenarioExecutor:
             if len(prompt) > 50:
                 prompt = prompt[:50] + '...'
             return f"AI анализ: {prompt}"
+        elif action == 'ai_decide':
+            prompt = step.get('prompt', '')
+            if len(prompt) > 50:
+                prompt = prompt[:50] + '...'
+            return f"AI решение: {prompt}"
         else:
             return f"{action}"
+
+    def _find_elements(self, selector: str, method: str, visible_only: bool = True) -> List[Any]:
+        """Поиск элементов с фильтрацией видимости."""
+        if not self.clicker or not self.clicker.driver:
+            return []
+        try:
+            from selenium.webdriver.common.by import By
+            method_map = {
+                'css': By.CSS_SELECTOR,
+                'xpath': By.XPATH,
+                'id': By.ID,
+                'name': By.NAME,
+                'class': By.CLASS_NAME,
+                'tag': By.TAG_NAME
+            }
+            by = method_map.get(method, By.CSS_SELECTOR)
+            elements = self.clicker.driver.find_elements(by, selector)
+            if not visible_only:
+                return elements
+            return [el for el in elements if el.is_displayed()]
+        except Exception:
+            return []
+    
+    def _extract_context_text(self, selector: str, method: str) -> Optional[str]:
+        """Извлекает наиболее подходящий текст из набора элементов."""
+        elements = self._find_elements(selector, method, visible_only=True)
+        if not elements:
+            return None
+        texts = [el.text.strip() for el in elements if el.text and el.text.strip()]
+        if not texts:
+            return None
+        # Предпочитаем текст с вопросительным знаком, иначе самый длинный
+        for text in texts:
+            if "?" in text:
+                return text
+        return max(texts, key=len)
+    
+    def _extract_options_text(self, elements: Optional[List[Any]]) -> List[str]:
+        """Извлекает тексты вариантов из элементов."""
+        if not elements:
+            return []
+        options = []
+        for el in elements:
+            text = (el.text or "").strip()
+            try:
+                if el.tag_name.lower() == "input":
+                    label_el = self._find_associated_label(el)
+                    if label_el and label_el.text:
+                        text = label_el.text.strip()
+            except Exception:
+                pass
+            if not text:
+                # Пробуем атрибуты
+                for attr in ["aria-label", "value", "title", "data-answer", "data-title"]:
+                    value = el.get_attribute(attr)
+                    if value:
+                        text = value.strip()
+                        break
+            if text == "on":
+                text = ""
+            if not text:
+                # Пробуем связанный label по id
+                el_id = el.get_attribute("id")
+                if el_id:
+                    try:
+                        label = self.clicker.driver.find_element(
+                            "xpath", f"//label[@for='{el_id}']"
+                        )
+                        if label and label.text:
+                            text = label.text.strip()
+                    except Exception:
+                        pass
+            if not text:
+                # Пробуем текст родителя
+                try:
+                    parent = el.find_element("xpath", "..")
+                    if parent and parent.text:
+                        text = parent.text.strip()
+                except Exception:
+                    pass
+            if text:
+                options.append(text)
+        return options
+
+    def _find_associated_label(self, element: Any) -> Optional[Any]:
+        """Пытается найти label, связанный с input."""
+        try:
+            from selenium.webdriver.common.by import By
+            el_id = element.get_attribute("id")
+            if el_id:
+                labels = self.clicker.driver.find_elements(By.CSS_SELECTOR, f"label[for='{el_id}']")
+                if labels:
+                    return labels[0]
+            labels = element.find_elements(By.XPATH, "ancestor::label[1]")
+            if labels:
+                return labels[0]
+            labels = element.find_elements(By.XPATH, "following-sibling::label[1]")
+            if labels:
+                return labels[0]
+            labels = element.find_elements(By.XPATH, "parent::label")
+            if labels:
+                return labels[0]
+        except Exception:
+            return None
+        return None
+    
+    def _parse_choice_index(self, response: Optional[str], options: List[str]) -> Optional[int]:
+        """Пытается получить индекс выбора из ответа AI."""
+        if not response:
+            return None
+        text = response.strip()
+        
+        # Попытка извлечь число
+        try:
+            import re
+            match = re.search(r"\b(\d{1,2})\b", text)
+            if match:
+                return int(match.group(1))
+        except Exception:
+            pass
+        
+        # Попытка сопоставить по тексту варианта
+        lowered = text.lower()
+        for i, opt in enumerate(options, start=1):
+            if opt and opt.lower() in lowered:
+                return i
+        
+        return None
+
+    def _emit_message(self, message: str) -> None:
+        """Отправляет сообщение в UI (если задан callback)."""
+        if self.message_callback:
+            try:
+                self.message_callback(message)
+            except Exception:
+                pass

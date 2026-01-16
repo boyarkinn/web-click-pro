@@ -488,6 +488,7 @@ class ChatWindow:
         self.scenario_executor.set_progress_callback(self._update_progress)
         self.scenario_executor.set_complete_callback(self._on_scenario_complete)
         self.scenario_executor.set_error_callback(self._on_scenario_error)
+        self.scenario_executor.set_message_callback(self._on_scenario_message)
         
         # Изменяем состояние кнопок
         if USE_CUSTOM_TKINTER:
@@ -546,6 +547,16 @@ class ChatWindow:
                 self._last_progress_status = status
         
         # Обновляем UI в главном потоке
+        if USE_CUSTOM_TKINTER:
+            self.window.after(0, update_ui)
+        else:
+            self.window.after(0, update_ui)
+
+    def _on_scenario_message(self, message: str):
+        """Сообщение от сценария (данные/ответ AI)"""
+        def update_ui():
+            self._add_message(message, is_user=False)
+        
         if USE_CUSTOM_TKINTER:
             self.window.after(0, update_ui)
         else:
