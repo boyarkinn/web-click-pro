@@ -33,6 +33,7 @@ class ChatWindow:
     
     def __init__(self, parent=None, clicker: WebClicker = None):
         """Инициализация окна чата"""
+        self.parent = parent
         self.llm_client = None
         self.current_url = None
         self.clicker = clicker
@@ -43,6 +44,8 @@ class ChatWindow:
         self.current_scenario = None
         self.scenario_file_path = None
         self.scenario_thread = None
+        self._last_progress_step = 0
+        self._last_progress_status = None
         
         # Создаем LLM клиент (через бэкенд)
         self.llm_client = self._create_llm_client()
@@ -55,19 +58,41 @@ class ChatWindow:
             except Exception as e:
                 print(f"[WARNING] AI контроллер не настроен: {e}")
         
+        self._create_window()
+
+    def _create_window(self):
+        """Создание или пересоздание окна чата"""
         if USE_CUSTOM_TKINTER:
-            self.window = ctk.CTkToplevel(parent) if parent else ctk.CTk()
+            self.window = ctk.CTkToplevel(self.parent) if self.parent else ctk.CTk()
         else:
-            self.window = tk.Toplevel(parent) if parent else tk.Tk()
-        
+            self.window = tk.Toplevel(self.parent) if self.parent else tk.Tk()
+
         # Заголовок зависит от режима работы
-        if clicker:
+        if self.clicker:
             self.window.title("Автоматизация сайта")
         else:
             self.window.title("Чат с ИИ")
         self.window.geometry("600x500")
-        
+
         self._create_widgets()
+        self._bind_close_handler()
+        self._bring_to_front()
+
+    def _bind_close_handler(self):
+        """Перехват закрытия окна, чтобы не разрушать его"""
+        try:
+            self.window.protocol("WM_DELETE_WINDOW", self._on_close)
+        except Exception:
+            pass
+
+    def _on_close(self):
+        """Обработка закрытия окна чата"""
+        try:
+            self.window.withdraw()
+            if self.parent and not self.clicker:
+                self.parent.deiconify()
+        except Exception:
+            pass
     
     def _create_widgets(self):
         """Создание виджетов"""
@@ -483,6 +508,8 @@ class ChatWindow:
             self.stop_scenario_btn.configure(state="normal")
         
         # Показываем информацию о запуске
+        self._last_progress_step = 0
+        self._last_progress_status = None
         scenario_name = self.current_scenario.get('name', 'Неизвестный сценарий')
         self._add_message(f"🚀 Запуск сценария: {scenario_name}", is_user=False)
         
@@ -511,6 +538,12 @@ class ChatWindow:
                 self.progress_label.configure(text=progress_text)
             else:
                 self.progress_label.configure(text=progress_text)
+            if status.startswith("Цикл:"):
+                return
+            if current != self._last_progress_step or status != self._last_progress_status:
+                self._add_message(f"➡ Шаг {current}/{total}: {status}", is_user=False)
+                self._last_progress_step = current
+                self._last_progress_status = status
         
         # Обновляем UI в главном потоке
         if USE_CUSTOM_TKINTER:
@@ -589,9 +622,39 @@ class ChatWindow:
     def _go_back(self):
         """Вернуться назад (скрыть окно чата)"""
         self.window.withdraw()  # Скрываем окно
+        try:
+            if self.parent and not self.clicker:
+                self.parent.deiconify()
+        except Exception:
+            pass
     
     def show(self):
         """Показать окно"""
+        if not self._is_window_alive():
+            self._create_window()
+            return
         self.window.deiconify()
-        self.window.lift()
-        self.window.focus_force()
+        self._bring_to_front()
+
+    def _is_window_alive(self) -> bool:
+        """Проверка, что окно существует и не уничтожено"""
+        try:
+            return bool(self.window.winfo_exists())
+        except Exception:
+            return False
+
+    def _bring_to_front(self):
+        """Поднять окно поверх главного"""
+        try:
+            if self.window.master and not self.clicker:
+                self.window.transient(self.window.master)
+        except Exception:
+            pass
+        try:
+            self.window.lift()
+            self.window.focus_force()
+            # Briefly toggle topmost to ensure it appears above the main window
+            self.window.attributes("-topmost", True)
+            self.window.after(200, lambda: self.window.attributes("-topmost", False))
+        except Exception:
+            pass

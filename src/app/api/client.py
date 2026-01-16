@@ -20,7 +20,7 @@ class APIClient:
         """
         self.base_url = base_url or os.getenv(
             "API_BASE_URL",
-            "http://localhost:8000"
+            "http://90.156.225.111:8000"
         )
         self.base_url = self.base_url.rstrip("/")
         

@@ -654,6 +654,11 @@ class MainWindow:
                             pass
                 
                 self.chat_window.show()
+            # Убираем главное окно, чтобы не перекрывать браузер
+            try:
+                self.root.iconify()
+            except Exception:
+                pass
                 
                 self._update_status("Готово к работе", success=True)
             else:
@@ -776,6 +781,12 @@ class MainWindow:
             
             # Запускаем сценарий в ChatWindow
             self.chat_window._run_scenario()
+
+            # Убираем главное окно, чтобы не перекрывать браузер
+            try:
+                self.root.iconify()
+            except Exception:
+                pass
             
             self._update_status("Сценарий запущен", success=True)
             
