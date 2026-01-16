@@ -46,3 +46,6 @@ screenshots/
 *.exe
 *.app
 *.dmg
+
+# Server (managed only on the remote host)
+server/
