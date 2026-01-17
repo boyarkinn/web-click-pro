@@ -72,7 +72,15 @@ class ChatWindow:
             self.window.title("Автоматизация сайта")
         else:
             self.window.title("Чат с ИИ")
-        self.window.geometry("600x500")
+        self.window.geometry("450x600")
+        try:
+            self.window.minsize(450, 600)
+        except Exception:
+            pass
+        if USE_CUSTOM_TKINTER:
+            self.window.configure(fg_color="#0f1115")
+        else:
+            self.window.configure(bg="#0f1115")
 
         self._create_widgets()
         self._bind_close_handler()
@@ -97,149 +105,254 @@ class ChatWindow:
     def _create_widgets(self):
         """Создание виджетов"""
         if USE_CUSTOM_TKINTER:
+            main_content = ctk.CTkFrame(self.window, fg_color="transparent")
+            main_content.pack(padx=24, pady=22, fill="both", expand=True)
+            
             # Заголовок
-            title_text = "Автоматизация сайта" if self.clicker else "Чат с ИИ"
-            title = ctk.CTkLabel(
-                self.window,
-                text=title_text,
-                font=ctk.CTkFont(size=20, weight="bold")
+            title_text = "Автоматизация сайта" if self.clicker else "Чат с ассистентом"
+            subtitle_text = ""
+            
+            header_card = ctk.CTkFrame(
+                main_content,
+                fg_color="#161a22",
+                border_width=1,
+                border_color="#2a3140",
+                corner_radius=16
             )
-            title.pack(pady=10)
+            header_card.pack(fill="x", pady=(0, 16))
+            header_card.pack_propagate(True)
+            
+            header_row = ctk.CTkFrame(header_card, fg_color="transparent")
+            header_row.pack(fill="x", padx=20, pady=(14, 14))
+            header_row.pack_propagate(True)
+            header_row.grid_columnconfigure(0, weight=1)
+            header_row.grid_columnconfigure(1, weight=0)
+            header_row.grid_columnconfigure(2, weight=1)
+            
+            # Кнопку "Назад" в чате не показываем
+            
+            header_text = ctk.CTkFrame(header_row, fg_color="transparent")
+            header_text.grid(row=0, column=1, sticky="nsew")
+            header_text.pack_propagate(True)
+            
+            title = ctk.CTkLabel(
+                header_text,
+                text=title_text,
+                font=ctk.CTkFont(size=26, weight="bold"),
+                text_color="#f8fafc"
+            )
+            title.pack(anchor="center", pady=(2, 4))
+            
+            if subtitle_text:
+                subtitle = ctk.CTkLabel(
+                    header_text,
+                    text=subtitle_text,
+                    font=ctk.CTkFont(size=13),
+                    text_color="#9aa4b2"
+                )
+                subtitle.pack(anchor="center")
+            
+            # Пустая колонка справа для центрирования текста
             
             # Фрейм управления сценариями (только для режима автоматизации)
             if self.clicker:
-                self._create_scenario_widgets_ctk()
+                scenario_card = ctk.CTkFrame(
+                    main_content,
+                    fg_color="#161a22",
+                    border_width=1,
+                    border_color="#2a3140",
+                    corner_radius=16
+                )
+                scenario_card.pack(fill="x", pady=(0, 16))
+                self._create_scenario_widgets_ctk(scenario_card)
             
             # Область чата
-            self.chat_area = ctk.CTkTextbox(
-                self.window,
-                height=350,
-                font=ctk.CTkFont(size=12)
+            chat_card = ctk.CTkFrame(
+                main_content,
+                fg_color="#161a22",
+                border_width=1,
+                border_color="#2a3140",
+                corner_radius=16
             )
-            self.chat_area.pack(pady=10, padx=10, fill="both", expand=True)
+            chat_card.pack(fill="both", expand=True)
+            
+            self.chat_area = ctk.CTkTextbox(
+                chat_card,
+                font=ctk.CTkFont(size=12),
+                fg_color="#0f1115",
+                text_color="#e2e8f0"
+            )
+            self.chat_area.pack(pady=16, padx=16, fill="both", expand=True)
             
             # Поле ввода
-            input_frame = ctk.CTkFrame(self.window)
-            input_frame.pack(pady=10, padx=10, fill="x")
+            input_card = ctk.CTkFrame(
+                main_content,
+                fg_color="#161a22",
+                border_width=1,
+                border_color="#2a3140",
+                corner_radius=16
+            )
+            input_card.pack(fill="x", pady=(16, 0))
+            
+            input_frame = ctk.CTkFrame(input_card, fg_color="transparent")
+            input_frame.pack(padx=16, pady=14, fill="x")
             
             self.input_entry = ctk.CTkEntry(
                 input_frame,
-                placeholder_text="Введите вопрос...",
-                font=ctk.CTkFont(size=12)
+                placeholder_text="Введите сообщение...",
+                font=ctk.CTkFont(size=12),
+                fg_color="#0f1115",
+                text_color="#e2e8f0",
+                border_color="#2a3140"
             )
-            self.input_entry.pack(side="left", padx=5, fill="x", expand=True)
+            self.input_entry.pack(side="left", padx=(0, 10), fill="x", expand=True)
             self.input_entry.bind("<Return>", lambda e: self._send_message())
             
             self.send_button = ctk.CTkButton(
                 input_frame,
                 text="Отправить",
                 command=self._send_message,
-                width=100
+                width=120,
+                fg_color="#4c8bf5",
+                hover_color="#3b76d8"
             )
-            self.send_button.pack(side="right", padx=5)
-            
-            # Кнопка "Назад"
-            self.back_button = ctk.CTkButton(
-                self.window,
-                text="Назад",
-                font=ctk.CTkFont(size=14),
-                height=35,
-                command=self._go_back,
-                fg_color="gray",
-                hover_color="darkgray"
-            )
-            self.back_button.pack(pady=(0, 10), padx=10, fill="x")
+            self.send_button.pack(side="right")
         else:
             # Обычный Tkinter
-            title_text = "Автоматизация сайта" if self.clicker else "Чат с ИИ"
-            title = tk.Label(
-                self.window,
-                text=title_text,
-                font=("Arial", 20, "bold"),
-                bg="#2b2b2b",
-                fg="white"
+            main_content = tk.Frame(self.window, bg="#0f1115")
+            main_content.pack(padx=24, pady=22, fill="both", expand=True)
+            
+            title_text = "Автоматизация сайта" if self.clicker else "Чат с ассистентом"
+            subtitle_text = ""
+            
+            header_card = tk.Frame(
+                main_content,
+                bg="#161a22",
+                highlightthickness=1,
+                highlightbackground="#2a3140"
             )
-            title.pack(pady=10)
+            header_card.pack(fill="x", pady=(0, 16))
+            header_card.pack_propagate(True)
+            
+            header_row = tk.Frame(header_card, bg="#161a22")
+            header_row.pack(fill="x", padx=20, pady=(14, 14))
+            header_row.pack_propagate(True)
+            header_row.grid_columnconfigure(0, weight=1)
+            header_row.grid_columnconfigure(1, weight=0)
+            header_row.grid_columnconfigure(2, weight=1)
+            
+            # Кнопку "Назад" в чате не показываем
+            
+            header_text = tk.Frame(header_row, bg="#161a22")
+            header_text.grid(row=0, column=1, sticky="nsew")
+            header_text.pack_propagate(True)
+            
+            title = tk.Label(
+                header_text,
+                text=title_text,
+                font=("Segoe UI", 22, "bold"),
+                bg="#161a22",
+                fg="#f8fafc"
+            )
+            title.pack(anchor="center", pady=(2, 4))
+            
+            if subtitle_text:
+                subtitle = tk.Label(
+                    header_text,
+                    text=subtitle_text,
+                    font=("Segoe UI", 11),
+                    bg="#161a22",
+                    fg="#9aa4b2"
+                )
+                subtitle.pack(anchor="center")
+            
+            # Пустая колонка справа для центрирования текста
             
             # Фрейм управления сценариями (только для режима автоматизации)
             if self.clicker:
-                self._create_scenario_widgets_tkinter()
+                scenario_card = tk.Frame(
+                    main_content,
+                    bg="#161a22",
+                    highlightthickness=1,
+                    highlightbackground="#2a3140"
+                )
+                scenario_card.pack(fill="x", pady=(0, 16))
+                self._create_scenario_widgets_tkinter(scenario_card)
             
             # Область чата
+            chat_card = tk.Frame(
+                main_content,
+                bg="#161a22",
+                highlightthickness=1,
+                highlightbackground="#2a3140"
+            )
+            chat_card.pack(fill="both", expand=True)
+            
             self.chat_area = scrolledtext.ScrolledText(
-                self.window,
-                height=20,
-                width=70,
-                font=("Arial", 11),
-                bg="#1e1e1e",
-                fg="white",
+                chat_card,
+                font=("Segoe UI", 11),
+                bg="#0f1115",
+                fg="#e2e8f0",
+                insertbackground="white",
                 wrap=tk.WORD
             )
-            self.chat_area.pack(pady=10, padx=10, fill="both", expand=True)
+            self.chat_area.pack(pady=16, padx=16, fill="both", expand=True)
             
             # Поле ввода
-            input_frame = tk.Frame(self.window, bg="#2b2b2b")
-            input_frame.pack(pady=10, padx=10, fill="x")
+            input_card = tk.Frame(
+                main_content,
+                bg="#161a22",
+                highlightthickness=1,
+                highlightbackground="#2a3140"
+            )
+            input_card.pack(fill="x", pady=(16, 0))
+            
+            input_frame = tk.Frame(input_card, bg="#161a22")
+            input_frame.pack(padx=16, pady=14, fill="x")
             
             self.input_entry = tk.Entry(
                 input_frame,
-                font=("Arial", 12),
-                bg="#3b3b3b",
-                fg="white",
-                insertbackground="white"
+                font=("Segoe UI", 12),
+                bg="#0f1115",
+                fg="#e2e8f0",
+                insertbackground="white",
+                relief="flat"
             )
-            self.input_entry.pack(side="left", padx=5, fill="x", expand=True)
+            self.input_entry.pack(side="left", padx=(0, 10), fill="x", expand=True)
             self.input_entry.bind("<Return>", lambda e: self._send_message())
             
             self.send_button = tk.Button(
                 input_frame,
                 text="Отправить",
                 command=self._send_message,
-                bg="#0078d4",
+                bg="#4c8bf5",
                 fg="white",
-                font=("Arial", 12)
-            )
-            self.send_button.pack(side="right", padx=5)
-            
-            # Кнопка "Назад"
-            self.back_button = tk.Button(
-                self.window,
-                text="Назад",
-                font=("Arial", 14),
-                bg="gray",
-                fg="white",
-                activebackground="darkgray",
+                activebackground="#3b76d8",
                 activeforeground="white",
+                font=("Segoe UI", 12),
                 relief="flat",
                 cursor="hand2",
-                command=self._go_back
+                width=12
             )
-            self.back_button.pack(pady=(0, 10), padx=10, fill="x", ipady=6)
+            self.send_button.pack(side="right")
     
-    def _create_scenario_widgets_ctk(self):
+    def _create_scenario_widgets_ctk(self, parent):
         """Создание виджетов управления сценариями (CustomTkinter)"""
         # Фрейм управления сценариями
-        scenario_frame = ctk.CTkFrame(self.window)
-        scenario_frame.pack(pady=5, padx=10, fill="x")
+        scenario_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        scenario_frame.pack(padx=16, pady=14, fill="x")
         
-        # Кнопка "Загрузить сценарий"
-        self.load_scenario_btn = ctk.CTkButton(
+        # Кнопка "Перезагрузить сценарий"
+        self.restart_scenario_btn = ctk.CTkButton(
             scenario_frame,
-            text="Загрузить сценарий",
-            command=self._load_scenario,
-            width=150
-        )
-        self.load_scenario_btn.pack(side="left", padx=5)
-        
-        # Кнопка "Запустить сценарий"
-        self.run_scenario_btn = ctk.CTkButton(
-            scenario_frame,
-            text="Запустить сценарий",
-            command=self._run_scenario,
+            text="Перезапустить",
+            command=self._restart_scenario,
             width=150,
+            fg_color="#3b4758",
+            hover_color="#334052",
             state="disabled"
         )
-        self.run_scenario_btn.pack(side="left", padx=5)
+        self.restart_scenario_btn.pack(side="left", padx=5)
         
         # Кнопка "Остановить сценарий" (скрыта по умолчанию)
         self.stop_scenario_btn = ctk.CTkButton(
@@ -250,66 +363,65 @@ class ChatWindow:
             fg_color="red",
             hover_color="darkred"
         )
-        # Не pack-им сразу, будет показываться при запуске
+        self.stop_scenario_btn.pack(side="left", padx=5)
+        self.stop_scenario_btn.configure(state="disabled")
         
         # Индикатор прогресса
         self.progress_label = ctk.CTkLabel(
             scenario_frame,
             text="",
-            font=ctk.CTkFont(size=11)
+            font=ctk.CTkFont(size=11),
+            text_color="#9aa4b2"
         )
         self.progress_label.pack(side="left", padx=10, fill="x", expand=True)
     
-    def _create_scenario_widgets_tkinter(self):
+    def _create_scenario_widgets_tkinter(self, parent):
         """Создание виджетов управления сценариями (Tkinter)"""
         # Фрейм управления сценариями
-        scenario_frame = tk.Frame(self.window, bg="#2b2b2b")
-        scenario_frame.pack(pady=5, padx=10, fill="x")
+        scenario_frame = tk.Frame(parent, bg="#161a22")
+        scenario_frame.pack(padx=16, pady=14, fill="x")
         
-        # Кнопка "Загрузить сценарий"
-        self.load_scenario_btn = tk.Button(
+        # Кнопка "Перезагрузить сценарий"
+        self.restart_scenario_btn = tk.Button(
             scenario_frame,
-            text="Загрузить сценарий",
-            command=self._load_scenario,
-            bg="#0078d4",
+            text="Перезапустить",
+            command=self._restart_scenario,
+            bg="#3b4758",
             fg="white",
-            font=("Arial", 11),
-            width=18
-        )
-        self.load_scenario_btn.pack(side="left", padx=5)
-        
-        # Кнопка "Запустить сценарий"
-        self.run_scenario_btn = tk.Button(
-            scenario_frame,
-            text="Запустить сценарий",
-            command=self._run_scenario,
-            bg="#0078d4",
-            fg="white",
-            font=("Arial", 11),
-            width=18,
+            font=("Segoe UI", 11),
+            width=16,
+            relief="flat",
+            cursor="hand2",
+            activebackground="#334052",
+            activeforeground="white",
             state="disabled"
         )
-        self.run_scenario_btn.pack(side="left", padx=5)
+        self.restart_scenario_btn.pack(side="left", padx=5)
         
-        # Кнопка "Остановить сценарий" (скрыта по умолчанию)
+        # Кнопка "Остановить сценарий"
         self.stop_scenario_btn = tk.Button(
             scenario_frame,
             text="Остановить",
             command=self._stop_scenario,
             bg="red",
             fg="white",
-            font=("Arial", 11),
-            width=15
+            font=("Segoe UI", 11, "bold"),
+            width=15,
+            relief="flat",
+            cursor="hand2",
+            activebackground="darkred",
+            activeforeground="white",
+            state="disabled"
         )
-        # Не pack-им сразу, будет показываться при запуске
+        self.stop_scenario_btn.pack(side="left", padx=5)
         
         # Индикатор прогресса
         self.progress_label = tk.Label(
             scenario_frame,
             text="",
-            font=("Arial", 11),
-            bg="#2b2b2b",
-            fg="gray",
+            font=("Segoe UI", 11),
+            bg="#161a22",
+            fg="#9aa4b2",
             anchor="w"
         )
         self.progress_label.pack(side="left", padx=10, fill="x", expand=True)
@@ -438,55 +550,74 @@ class ChatWindow:
             if not file_path:
                 return
             
-            # Загрузка и парсинг сценария
-            try:
-                json_data = ScenarioParser.load_from_file(file_path)
-            except FileNotFoundError as e:
-                self._add_message(f"❌ Файл не найден: {str(e)}", is_user=False)
-                return
-            except ValueError as e:
-                # Ошибка парсинга JSON
-                self._add_message(f"❌ Ошибка парсинга JSON: {str(e)}", is_user=False)
-                return
-            except Exception as e:
-                self._add_message(f"❌ Ошибка загрузки файла: {str(e)}", is_user=False)
-                return
-            
-            try:
-                scenario = ScenarioParser.parse(json_data)
-            except ValueError as e:
-                # Ошибка парсинга структуры
-                self._add_message(f"❌ Ошибка парсинга сценария: {str(e)}", is_user=False)
-                return
-            
-            # Валидация сценария
-            from app.scenarios.validator import ScenarioValidator
-            is_valid, error = ScenarioValidator.validate(scenario)
-            if not is_valid:
-                # Ошибка валидации - показываем список проблем
-                self._add_message(f"❌ Ошибка валидации сценария:", is_user=False)
-                # Разбиваем ошибки по строкам (если их несколько)
-                errors = error.split('; ')
-                for err in errors:
-                    if err.strip():
-                        self._add_message(f"  • {err.strip()}", is_user=False)
-                return
-            
-            self.current_scenario = scenario
-            self.scenario_file_path = file_path
-            
-            # Обновление UI
-            scenario_name = scenario.get('name', 'Неизвестный сценарий')
-            self._add_message(f"✅ Сценарий загружен: {scenario_name}", is_user=False)
-            
-            # Включаем кнопку запуска
-            if USE_CUSTOM_TKINTER:
-                self.run_scenario_btn.configure(state="normal")
-            else:
-                self.run_scenario_btn.configure(state="normal")
+            self._load_scenario_from_path(file_path)
                 
         except Exception as e:
             self._add_message(f"❌ Неожиданная ошибка: {str(e)}", is_user=False)
+    
+    def _restart_scenario(self):
+        """Перезапуск текущего сценария"""
+        if not self.scenario_file_path:
+            self._add_message("❌ Нет загруженного сценария для перезапуска.", is_user=False)
+            return
+        
+        if self.scenario_executor:
+            self._stop_scenario()
+            if USE_CUSTOM_TKINTER:
+                self.window.after(200, self._run_scenario)
+            else:
+                self.window.after(200, self._run_scenario)
+        else:
+            self._run_scenario()
+    
+    def _load_scenario_from_path(self, file_path: str):
+        """Загрузка сценария по пути"""
+        # Загрузка и парсинг сценария
+        try:
+            json_data = ScenarioParser.load_from_file(file_path)
+        except FileNotFoundError as e:
+            self._add_message(f"❌ Файл не найден: {str(e)}", is_user=False)
+            return
+        except ValueError as e:
+            # Ошибка парсинга JSON
+            self._add_message(f"❌ Ошибка парсинга JSON: {str(e)}", is_user=False)
+            return
+        except Exception as e:
+            self._add_message(f"❌ Ошибка загрузки файла: {str(e)}", is_user=False)
+            return
+        
+        try:
+            scenario = ScenarioParser.parse(json_data)
+        except ValueError as e:
+            # Ошибка парсинга структуры
+            self._add_message(f"❌ Ошибка парсинга сценария: {str(e)}", is_user=False)
+            return
+        
+        # Валидация сценария
+        from app.scenarios.validator import ScenarioValidator
+        is_valid, error = ScenarioValidator.validate(scenario)
+        if not is_valid:
+            # Ошибка валидации - показываем список проблем
+            self._add_message(f"❌ Ошибка валидации сценария:", is_user=False)
+            # Разбиваем ошибки по строкам (если их несколько)
+            errors = error.split('; ')
+            for err in errors:
+                if err.strip():
+                    self._add_message(f"  • {err.strip()}", is_user=False)
+            return
+        
+        self.current_scenario = scenario
+        self.scenario_file_path = file_path
+        
+        # Обновление UI
+        scenario_name = scenario.get('name', 'Неизвестный сценарий')
+        self._add_message(f"✅ Сценарий загружен: {scenario_name}", is_user=False)
+        
+        # Включаем кнопку перезагрузки
+        if USE_CUSTOM_TKINTER:
+            self.restart_scenario_btn.configure(state="normal")
+        else:
+            self.restart_scenario_btn.configure(state="normal")
     
     def _run_scenario(self):
         """Запуск сценария"""
@@ -509,19 +640,15 @@ class ChatWindow:
         
         # Изменяем состояние кнопок
         if USE_CUSTOM_TKINTER:
-            self.run_scenario_btn.configure(state="disabled")
-            self.load_scenario_btn.configure(state="disabled")
+            self.restart_scenario_btn.configure(state="disabled")
             # Показываем кнопку остановки (pack перед progress_label)
             self.progress_label.pack_forget()
-            self.stop_scenario_btn.pack(side="left", padx=5)
             self.progress_label.pack(side="left", padx=10, fill="x", expand=True)
             self.stop_scenario_btn.configure(state="normal")
         else:
-            self.run_scenario_btn.configure(state="disabled")
-            self.load_scenario_btn.configure(state="disabled")
+            self.restart_scenario_btn.configure(state="disabled")
             # Показываем кнопку остановки (pack перед progress_label)
             self.progress_label.pack_forget()
-            self.stop_scenario_btn.pack(side="left", padx=5)
             self.progress_label.pack(side="left", padx=10, fill="x", expand=True)
             self.stop_scenario_btn.configure(state="normal")
         
@@ -589,15 +716,13 @@ class ChatWindow:
             
             # Сбрасываем состояние кнопок
             if USE_CUSTOM_TKINTER:
-                self.run_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
-                self.load_scenario_btn.configure(state="normal")
-                self.stop_scenario_btn.pack_forget()
+                self.restart_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
                 self.progress_label.configure(text="")
+                self.stop_scenario_btn.configure(state="disabled")
             else:
-                self.run_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
-                self.load_scenario_btn.configure(state="normal")
-                self.stop_scenario_btn.pack_forget()
+                self.restart_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
                 self.progress_label.configure(text="")
+                self.stop_scenario_btn.configure(state="disabled")
             
             self.scenario_executor = None
             self.scenario_thread = None
@@ -615,15 +740,13 @@ class ChatWindow:
             
             # Сбрасываем состояние кнопок
             if USE_CUSTOM_TKINTER:
-                self.run_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
-                self.load_scenario_btn.configure(state="normal")
-                self.stop_scenario_btn.pack_forget()
+                self.restart_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
                 self.progress_label.configure(text="")
+                self.stop_scenario_btn.configure(state="disabled")
             else:
-                self.run_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
-                self.load_scenario_btn.configure(state="normal")
-                self.stop_scenario_btn.pack_forget()
+                self.restart_scenario_btn.configure(state="normal" if self.current_scenario else "disabled")
                 self.progress_label.configure(text="")
+                self.stop_scenario_btn.configure(state="disabled")
             
             self.scenario_executor = None
             self.scenario_thread = None

@@ -38,6 +38,8 @@ class MainWindow:
         # Выбранный сценарий
         self.selected_scenario = None
         self.selected_scenario_path = None
+        self.window_width = 920
+        self.window_height = 640
         
         if USE_CUSTOM_TKINTER:
             # Настройка CustomTkinter
@@ -47,7 +49,9 @@ class MainWindow:
             # Создание окна
             self.root = ctk.CTk()
             self.root.title("Веб-Кликер Pro")
-            self.root.geometry("800x600")
+            self.root.geometry(f"{self.window_width}x{self.window_height}")
+            self.root.minsize(820, 560)
+            self.root.configure(fg_color="#0f1115")
             
             # Центрирование окна
             self._center_window()
@@ -58,8 +62,9 @@ class MainWindow:
             # Обычный Tkinter
             self.root = tk.Tk()
             self.root.title("Веб-Кликер Pro")
-            self.root.geometry("800x600")
-            self.root.configure(bg="#2b2b2b")
+            self.root.geometry(f"{self.window_width}x{self.window_height}")
+            self.root.minsize(820, 560)
+            self.root.configure(bg="#0f1115")
             
             # Центрирование окна
             self._center_window()
@@ -70,119 +75,209 @@ class MainWindow:
     def _center_window(self):
         """Центрирование окна на экране"""
         self.root.update_idletasks()
-        # Используем заданный размер (800x600) вместо реального размера окна
-        width = 800
-        height = 600
+        # Используем заданный размер вместо реального размера окна
+        width = self.window_width
+        height = self.window_height
         x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
     
     def _create_widgets(self):
         """Создание виджетов (CustomTkinter)"""
+        # Контентный контейнер (главный экран)
+        self.main_content = ctk.CTkFrame(self.root, fg_color="transparent")
+        self.main_content.pack(padx=36, pady=28, fill="both", expand=True)
+        
+        # Контейнер заголовка
+        header_card = ctk.CTkFrame(
+            self.main_content,
+            fg_color="#161a22",
+            border_width=1,
+            border_color="#2a3140",
+            corner_radius=16
+        )
+        header_card.pack(fill="x", pady=(0, 18))
+        
         # Заголовок
         title = ctk.CTkLabel(
-            self.root,
+            header_card,
             text="Веб-Кликер Pro",
-            font=ctk.CTkFont(size=32, weight="bold")
+            font=ctk.CTkFont(size=34, weight="bold"),
+            text_color="#f8fafc"
         )
-        title.pack(pady=30)
+        title.pack(anchor="center", padx=20, pady=(16, 4))
         
         # Подзаголовок
         subtitle = ctk.CTkLabel(
-            self.root,
-            text="Автоматизация работы с веб-сайтами",
-            font=ctk.CTkFont(size=16),
-            text_color="gray"
+            header_card,
+            text="Автоматизация действий в браузере для быстрых задач",
+            font=ctk.CTkFont(size=15),
+            text_color="#9aa4b2"
         )
-        subtitle.pack(pady=10)
+        subtitle.pack(anchor="center", padx=20, pady=(0, 16))
         
-        # Фрейм для кнопок выбора режима
-        self.mode_frame = ctk.CTkFrame(self.root)
-        self.mode_frame.pack(pady=50, padx=40, fill="x")
+        # Фрейм для карточек выбора режима
+        self.mode_frame = ctk.CTkFrame(self.main_content, fg_color="transparent")
+        self.mode_frame.pack(fill="x", pady=(4, 16))
         
-        # Кнопка "Запустить сценарий"
-        self.run_scenario_entry_button = ctk.CTkButton(
+        # Карточка "Запустить сценарий"
+        scenario_card = ctk.CTkFrame(
             self.mode_frame,
+            fg_color="#161a22",
+            border_width=1,
+            border_color="#2a3140",
+            corner_radius=16
+        )
+        scenario_card.pack(fill="x", pady=(0, 16))
+        
+        self.run_scenario_entry_button = ctk.CTkButton(
+            scenario_card,
             text="Запустить сценарий",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            height=50,
+            font=ctk.CTkFont(size=15, weight="bold"),
+            height=44,
+            corner_radius=10,
+            fg_color="#4c8bf5",
+            hover_color="#3b76d8",
             command=self._show_scenario_input
         )
-        self.run_scenario_entry_button.pack(pady=20, padx=40, fill="x")
+        self.run_scenario_entry_button.pack(padx=20, pady=18, fill="x")
         
-        # Кнопка "Чат"
-        self.chat_button = ctk.CTkButton(
+        # Карточка "Чат"
+        chat_card = ctk.CTkFrame(
             self.mode_frame,
-            text="Чат",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            height=50,
-            command=self._open_simple_chat,
-            fg_color="green",
-            hover_color="darkgreen"
+            fg_color="#161a22",
+            border_width=1,
+            border_color="#2a3140",
+            corner_radius=16
         )
-        self.chat_button.pack(pady=20, padx=40, fill="x")
+        chat_card.pack(fill="x")
+        
+        self.chat_button = ctk.CTkButton(
+            chat_card,
+            text="Чат",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            height=44,
+            corner_radius=10,
+            fg_color="#22c55e",
+            hover_color="#16a34a",
+            command=self._open_simple_chat
+        )
+        self.chat_button.pack(padx=20, pady=18, fill="x")
         
         # Фрейм для выбора сценария (скрыт по умолчанию)
-        self.scenario_input_frame = ctk.CTkFrame(self.root)
+        self.scenario_input_frame = ctk.CTkFrame(self.root, fg_color="#0f1115")
         self.scenario_input_frame.pack_forget()  # Скрыт по умолчанию
+        
+        scenario_content = ctk.CTkFrame(self.scenario_input_frame, fg_color="transparent")
+        scenario_content.pack(padx=36, pady=28, fill="both", expand=True)
+        
+        scenario_header_card = ctk.CTkFrame(
+            scenario_content,
+            fg_color="#161a22",
+            border_width=1,
+            border_color="#2a3140",
+            corner_radius=16
+        )
+        scenario_header_card.pack(fill="x", pady=(0, 18))
+        scenario_header_card.pack_propagate(True)
+        
+        header_row = ctk.CTkFrame(scenario_header_card, fg_color="transparent")
+        header_row.pack(fill="x", padx=20, pady=(14, 12))
+        header_row.pack_propagate(True)
+        header_row.grid_columnconfigure(0, weight=1)
+        header_row.grid_columnconfigure(1, weight=0)
+        header_row.grid_columnconfigure(2, weight=1)
+        
+        self.scenario_back_button = ctk.CTkButton(
+            header_row,
+            text="Назад",
+            font=ctk.CTkFont(size=13),
+            height=30,
+            width=90,
+            command=self._show_main_menu,
+            fg_color="#1f2937",
+            hover_color="#273244"
+        )
+        self.scenario_back_button.grid(row=0, column=0, sticky="w")
+        
+        header_text = ctk.CTkFrame(header_row, fg_color="transparent")
+        header_text.grid(row=0, column=1, sticky="nsew")
+        header_text.pack_propagate(True)
+        
+        scenario_title = ctk.CTkLabel(
+            header_text,
+            text="Запустить сценарий",
+            font=ctk.CTkFont(size=22, weight="bold"),
+            text_color="#f8fafc"
+        )
+        scenario_title.pack(anchor="center", pady=(2, 4))
+        
+        scenario_subtitle = ctk.CTkLabel(
+            header_text,
+            text="Выберите JSON-файл и запустите автоматизацию.",
+            font=ctk.CTkFont(size=13),
+            text_color="#9aa4b2"
+        )
+        scenario_subtitle.pack(anchor="center")
+        
+        # Пустая колонка справа для центрирования текста
+        
+        scenario_card = ctk.CTkFrame(
+            scenario_content,
+            fg_color="#161a22",
+            border_width=1,
+            border_color="#2a3140",
+            corner_radius=16
+        )
+        scenario_card.pack(fill="x")
         
         # Метка для выбора сценария
         scenario_label = ctk.CTkLabel(
-            self.scenario_input_frame,
-            text="Выберите сценарий:",
-            font=ctk.CTkFont(size=14)
+            scenario_card,
+            text="Выберите сценарий",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            text_color="#e2e8f0"
         )
-        scenario_label.pack(pady=(20, 10), padx=20)
+        scenario_label.pack(anchor="w", pady=(18, 6), padx=20)
         
         # Метка выбранного сценария
         self.scenario_info_label = ctk.CTkLabel(
-            self.scenario_input_frame,
+            scenario_card,
             text="Сценарий не выбран",
             font=ctk.CTkFont(size=12),
-            text_color="gray"
+            text_color="#8a97a8"
         )
-        self.scenario_info_label.pack(pady=(0, 10), padx=20)
+        self.scenario_info_label.pack(anchor="w", pady=(0, 12), padx=20)
         
         # Фрейм для кнопок сценария
-        scenario_buttons_frame = ctk.CTkFrame(self.scenario_input_frame, fg_color="transparent")
-        scenario_buttons_frame.pack(pady=10, padx=20, fill="x")
+        scenario_buttons_frame = ctk.CTkFrame(scenario_card, fg_color="transparent")
+        scenario_buttons_frame.pack(pady=(0, 16), padx=20, fill="x")
         
         # Кнопка выбора сценария
         self.select_scenario_button = ctk.CTkButton(
             scenario_buttons_frame,
-            text="Выбрать сценарий",
-            font=ctk.CTkFont(size=14),
-            height=35,
+            text="Выбрать файл",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            height=40,
             command=self._select_scenario,
-            width=150
+            fg_color="#3b4758",
+            hover_color="#334052"
         )
         self.select_scenario_button.pack(side="left", padx=(0, 10))
         
         # Кнопка запуска сценария
         self.run_scenario_button = ctk.CTkButton(
             scenario_buttons_frame,
-            text="Запустить сценарий",
-            font=ctk.CTkFont(size=14, weight="bold"),
-            height=35,
+            text="Запустить",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            height=40,
             command=self._run_scenario_from_main,
-            width=150,
-            state="disabled",
-            fg_color="green",
-            hover_color="darkgreen"
+            fg_color="#22c55e",
+            hover_color="#16a34a"
         )
         self.run_scenario_button.pack(side="left")
+        self._set_run_button_state(False)
         
-        # Кнопка "Назад"
-        self.scenario_back_button = ctk.CTkButton(
-            self.scenario_input_frame,
-            text="Назад",
-            font=ctk.CTkFont(size=14),
-            height=35,
-            command=self._show_main_menu,
-            fg_color="gray",
-            hover_color="darkgray"
-        )
-        self.scenario_back_button.pack(pady=(0, 20), padx=20, fill="x")
         
         # Статус
         self.status_label = ctk.CTkLabel(
@@ -204,143 +299,221 @@ class MainWindow:
     
     def _create_widgets_tkinter(self):
         """Создание виджетов (обычный Tkinter)"""
+        # Контентный контейнер (главный экран)
+        self.main_content = tk.Frame(self.root, bg="#0f1115")
+        self.main_content.pack(padx=36, pady=28, fill="both", expand=True)
+        
+        # Контейнер заголовка
+        header_card = tk.Frame(
+            self.main_content,
+            bg="#161a22",
+            highlightthickness=1,
+            highlightbackground="#2a3140"
+        )
+        header_card.pack(fill="x", pady=(0, 18))
+        
         # Заголовок
         title = tk.Label(
-            self.root,
+            header_card,
             text="Веб-Кликер Pro",
-            font=("Arial", 32, "bold"),
-            bg="#2b2b2b",
-            fg="white"
+            font=("Segoe UI", 32, "bold"),
+            bg="#161a22",
+            fg="#f8fafc"
         )
-        title.pack(pady=30)
+        title.pack(anchor="center", padx=20, pady=(16, 4))
         
         # Подзаголовок
         subtitle = tk.Label(
-            self.root,
-            text="Автоматизация работы с веб-сайтами",
-            font=("Arial", 16),
-            bg="#2b2b2b",
-            fg="gray"
+            header_card,
+            text="Автоматизация действий в браузере для быстрых задач",
+            font=("Segoe UI", 14),
+            bg="#161a22",
+            fg="#9aa4b2"
         )
-        subtitle.pack(pady=10)
+        subtitle.pack(anchor="center", padx=20, pady=(0, 16))
         
-        # Фрейм для кнопок выбора режима
-        self.mode_frame = tk.Frame(self.root, bg="#2b2b2b")
-        self.mode_frame.pack(pady=50, padx=40, fill="x")
+        # Фрейм для карточек выбора режима
+        self.mode_frame = tk.Frame(self.main_content, bg="#0f1115")
+        self.mode_frame.pack(fill="x", pady=(4, 16))
         
-        # Кнопка "Запустить сценарий"
-        self.run_scenario_entry_button = tk.Button(
+        # Карточка "Запустить сценарий"
+        scenario_card = tk.Frame(
             self.mode_frame,
+            bg="#161a22",
+            highlightthickness=1,
+            highlightbackground="#2a3140"
+        )
+        scenario_card.pack(fill="x", pady=(0, 16))
+        
+        self.run_scenario_entry_button = tk.Button(
+            scenario_card,
             text="Запустить сценарий",
-            font=("Arial", 18, "bold"),
-            bg="#0078d4",
+            font=("Segoe UI", 13, "bold"),
+            bg="#4c8bf5",
             fg="white",
-            activebackground="#005a9e",
+            activebackground="#3b76d8",
             activeforeground="white",
             relief="flat",
             cursor="hand2",
             command=self._show_scenario_input
         )
-        self.run_scenario_entry_button.pack(pady=20, padx=40, fill="x", ipady=10)
+        self.run_scenario_entry_button.pack(padx=20, pady=18, fill="x", ipady=6)
         
-        # Кнопка "Чат"
-        self.chat_button = tk.Button(
+        # Карточка "Чат"
+        chat_card = tk.Frame(
             self.mode_frame,
+            bg="#161a22",
+            highlightthickness=1,
+            highlightbackground="#2a3140"
+        )
+        chat_card.pack(fill="x")
+        
+        self.chat_button = tk.Button(
+            chat_card,
             text="Чат",
-            font=("Arial", 18, "bold"),
-            bg="green",
+            font=("Segoe UI", 13, "bold"),
+            bg="#22c55e",
             fg="white",
-            activebackground="darkgreen",
+            activebackground="#16a34a",
             activeforeground="white",
             relief="flat",
             cursor="hand2",
             command=self._open_simple_chat
         )
-        self.chat_button.pack(pady=20, padx=40, fill="x", ipady=10)
+        self.chat_button.pack(padx=20, pady=18, fill="x", ipady=6)
         
         # Фрейм для выбора сценария (скрыт по умолчанию)
-        self.scenario_input_frame = tk.Frame(self.root, bg="#2b2b2b")
+        self.scenario_input_frame = tk.Frame(self.root, bg="#0f1115")
+        
+        scenario_content = tk.Frame(self.scenario_input_frame, bg="#0f1115")
+        scenario_content.pack(padx=36, pady=28, fill="both", expand=True)
+        
+        scenario_header_card = tk.Frame(
+            scenario_content,
+            bg="#161a22",
+            highlightthickness=1,
+            highlightbackground="#2a3140"
+        )
+        scenario_header_card.pack(fill="x", pady=(0, 18))
+        scenario_header_card.pack_propagate(True)
+        
+        header_row = tk.Frame(scenario_header_card, bg="#161a22")
+        header_row.pack(fill="x", padx=20, pady=(14, 12))
+        header_row.pack_propagate(True)
+        header_row.grid_columnconfigure(0, weight=1)
+        header_row.grid_columnconfigure(1, weight=0)
+        header_row.grid_columnconfigure(2, weight=1)
+        
+        self.scenario_back_button = tk.Button(
+            header_row,
+            text="Назад",
+            font=("Segoe UI", 12),
+            bg="#1f2937",
+            fg="white",
+            activebackground="#273244",
+            activeforeground="white",
+            relief="flat",
+            cursor="hand2",
+            command=self._show_main_menu,
+            width=10
+        )
+        self.scenario_back_button.grid(row=0, column=0, sticky="w")
+        
+        header_text = tk.Frame(header_row, bg="#161a22")
+        header_text.grid(row=0, column=1, sticky="nsew")
+        header_text.pack_propagate(True)
+        
+        scenario_title = tk.Label(
+            header_text,
+            text="Запустить сценарий",
+            font=("Segoe UI", 20, "bold"),
+            bg="#161a22",
+            fg="#f8fafc"
+        )
+        scenario_title.pack(anchor="center", pady=(2, 4))
+        
+        scenario_subtitle = tk.Label(
+            header_text,
+            text="Выберите JSON-файл и запустите автоматизацию.",
+            font=("Segoe UI", 12),
+            bg="#161a22",
+            fg="#9aa4b2"
+        )
+        scenario_subtitle.pack(anchor="center")
+        
+        # Пустая колонка справа для центрирования текста
+        
+        scenario_card = tk.Frame(
+            scenario_content,
+            bg="#161a22",
+            highlightthickness=1,
+            highlightbackground="#2a3140"
+        )
+        scenario_card.pack(fill="x")
         
         # Метка для выбора сценария
         scenario_label = tk.Label(
-            self.scenario_input_frame,
-            text="Выберите сценарий:",
-            font=("Arial", 14),
-            bg="#2b2b2b",
-            fg="white"
+            scenario_card,
+            text="Выберите сценарий",
+            font=("Segoe UI", 13, "bold"),
+            bg="#161a22",
+            fg="#e2e8f0"
         )
-        scenario_label.pack(pady=(20, 10), padx=20)
+        scenario_label.pack(anchor="w", pady=(16, 6), padx=20)
         
         # Метка выбранного сценария
         self.scenario_info_label = tk.Label(
-            self.scenario_input_frame,
+            scenario_card,
             text="Сценарий не выбран",
-            font=("Arial", 12),
-            bg="#2b2b2b",
-            fg="gray"
+            font=("Segoe UI", 11),
+            bg="#161a22",
+            fg="#8a97a8"
         )
-        self.scenario_info_label.pack(pady=(0, 10), padx=20)
+        self.scenario_info_label.pack(anchor="w", pady=(0, 12), padx=20)
         
         # Фрейм для кнопок сценария
-        scenario_buttons_frame = tk.Frame(self.scenario_input_frame, bg="#2b2b2b")
-        scenario_buttons_frame.pack(pady=10, padx=20, fill="x")
+        scenario_buttons_frame = tk.Frame(scenario_card, bg="#161a22")
+        scenario_buttons_frame.pack(pady=(0, 16), padx=20, fill="x")
         
         # Кнопка выбора сценария
         self.select_scenario_button = tk.Button(
             scenario_buttons_frame,
-            text="Выбрать сценарий",
-            font=("Arial", 12),
-            bg="#0078d4",
+            text="Выбрать файл",
+            font=("Segoe UI", 12, "bold"),
+            bg="#3b4758",
             fg="white",
-            activebackground="#005a9e",
+            activebackground="#334052",
             activeforeground="white",
             relief="flat",
             cursor="hand2",
-            command=self._select_scenario,
-            width=18,
-            height=2
+            command=self._select_scenario
         )
-        self.select_scenario_button.pack(side="left", padx=(0, 10))
+        self.select_scenario_button.pack(side="left", padx=(0, 10), ipadx=10, ipady=6)
         
         # Кнопка запуска сценария
         self.run_scenario_button = tk.Button(
             scenario_buttons_frame,
-            text="Запустить сценарий",
-            font=("Arial", 12, "bold"),
-            bg="green",
+            text="Запустить",
+            font=("Segoe UI", 12, "bold"),
+            bg="#22c55e",
             fg="white",
-            activebackground="darkgreen",
+            activebackground="#16a34a",
             activeforeground="white",
             relief="flat",
             cursor="hand2",
             command=self._run_scenario_from_main,
-            width=18,
-            height=2,
             state="disabled"
         )
-        self.run_scenario_button.pack(side="left")
+        self.run_scenario_button.pack(side="left", ipadx=12, ipady=6)
+        self._set_run_button_state(False)
         
-        # Кнопка "Назад"
-        self.scenario_back_button = tk.Button(
-            self.scenario_input_frame,
-            text="Назад",
-            font=("Arial", 14),
-            bg="gray",
-            fg="white",
-            activebackground="darkgray",
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            command=self._show_main_menu
-        )
-        self.scenario_back_button.pack(pady=(0, 20), padx=20, fill="x", ipady=6)
         
         # Статус
         self.status_label = tk.Label(
             self.root,
             text="",
             font=("Arial", 12),
-            bg="#2b2b2b",
+            bg="#0f1115",
             fg="gray"
         )
         self.status_label.pack(pady=10)
@@ -350,7 +523,7 @@ class MainWindow:
             self.root,
             text="Версия 1.0.0",
             font=("Arial", 12),
-            bg="#2b2b2b",
+            bg="#0f1115",
             fg="gray"
         )
         version.pack(side="bottom", pady=20)
@@ -362,18 +535,21 @@ class MainWindow:
             self.scenario_input_frame.pack_forget()
         else:
             self.scenario_input_frame.pack_forget()
-        # Показываем кнопки режима
-        self.mode_frame.pack(pady=50, padx=40, fill="x")
+        # Показываем главный экран
+        if USE_CUSTOM_TKINTER:
+            self.main_content.pack(padx=36, pady=28, fill="both", expand=True)
+        else:
+            self.main_content.pack(padx=36, pady=28, fill="both", expand=True)
     
     def _show_scenario_input(self):
         """Показать форму выбора сценария"""
         # Скрываем главное меню
         if USE_CUSTOM_TKINTER:
-            self.mode_frame.pack_forget()
-            self.scenario_input_frame.pack(pady=40, padx=40, fill="x")
+            self.main_content.pack_forget()
+            self.scenario_input_frame.pack(pady=28, padx=36, fill="x")
         else:
-            self.mode_frame.pack_forget()
-            self.scenario_input_frame.pack(pady=40, padx=40, fill="x")
+            self.main_content.pack_forget()
+            self.scenario_input_frame.pack(pady=28, padx=36, fill="x")
     
     def _open_simple_chat(self):
         """Открыть простой чат без кликера"""
@@ -427,10 +603,10 @@ class MainWindow:
             file_name = os.path.basename(file_path)
             if USE_CUSTOM_TKINTER:
                 self.scenario_info_label.configure(text=f"{scenario_name} ({file_name})")
-                self.run_scenario_button.configure(state="normal")
+                self._set_run_button_state(True)
             else:
                 self.scenario_info_label.configure(text=f"{scenario_name} ({file_name})")
-                self.run_scenario_button.configure(state="normal")
+                self._set_run_button_state(True)
             
             self._update_status(f"Сценарий выбран: {scenario_name}", success=True)
             
@@ -446,10 +622,10 @@ class MainWindow:
         # Обновление статуса
         self._update_status("Запуск браузера...")
         if USE_CUSTOM_TKINTER:
-            self.run_scenario_button.configure(state="disabled")
+            self._set_run_button_state(False)
             self.select_scenario_button.configure(state="disabled")
         else:
-            self.run_scenario_button.configure(state="disabled")
+            self._set_run_button_state(False)
             self.select_scenario_button.configure(state="disabled")
         
         try:
@@ -462,10 +638,10 @@ class MainWindow:
                 if not self.clicker.start_browser("chrome"):
                     self._update_status("Ошибка: не удалось запустить браузер", error=True)
                     if USE_CUSTOM_TKINTER:
-                        self.run_scenario_button.configure(state="normal")
+                        self._set_run_button_state(True)
                         self.select_scenario_button.configure(state="normal")
                     else:
-                        self.run_scenario_button.configure(state="normal")
+                        self._set_run_button_state(True)
                         self.select_scenario_button.configure(state="normal")
                     return
             
@@ -507,10 +683,10 @@ class MainWindow:
             self._update_status(f"Ошибка: {str(e)}", error=True)
         finally:
             if USE_CUSTOM_TKINTER:
-                self.run_scenario_button.configure(state="normal" if self.selected_scenario else "disabled")
+                self._set_run_button_state(bool(self.selected_scenario))
                 self.select_scenario_button.configure(state="normal")
             else:
-                self.run_scenario_button.configure(state="normal" if self.selected_scenario else "disabled")
+                self._set_run_button_state(bool(self.selected_scenario))
                 self.select_scenario_button.configure(state="normal")
     
     def _update_status(self, message: str, error: bool = False, success: bool = False):
@@ -529,6 +705,43 @@ class MainWindow:
                 self.status_label.configure(text=message, fg="green")
             else:
                 self.status_label.configure(text=message, fg="gray")
+    
+    def _set_run_button_state(self, enabled: bool):
+        """Обновить внешний вид кнопки запуска сценария"""
+        if USE_CUSTOM_TKINTER:
+            if enabled:
+                self.run_scenario_button.configure(
+                    state="normal",
+                    fg_color="#22c55e",
+                    hover_color="#16a34a",
+                    text_color="#ffffff"
+                )
+            else:
+                self.run_scenario_button.configure(
+                    state="disabled",
+                    fg_color="#2b313d",
+                    hover_color="#2b313d",
+                    text_color="#9aa4b2"
+                )
+        else:
+            if enabled:
+                self.run_scenario_button.configure(
+                    state="normal",
+                    bg="#22c55e",
+                    fg="white",
+                    activebackground="#16a34a",
+                    activeforeground="white",
+                    disabledforeground="white"
+                )
+            else:
+                self.run_scenario_button.configure(
+                    state="disabled",
+                    bg="#2b313d",
+                    fg="#9aa4b2",
+                    activebackground="#2b313d",
+                    activeforeground="#9aa4b2",
+                    disabledforeground="#9aa4b2"
+                )
     
     def run(self):
         """Запуск главного цикла приложения"""

@@ -513,48 +513,6 @@ class ScenarioExecutor:
             if self.error_callback:
                 self.error_callback(error_msg)
             return False
-
-    def _execute_wait_user(self, step: Dict[str, Any]) -> bool:
-        """Ожидание пользовательского ввода через чат."""
-        prompt = step.get('message', 'Ожидается ввод пользователя.')
-        store_as = step.get('store_as')
-        timeout = step.get('timeout')
-        
-        self.waiting_for_user = True
-        self._waiting_input_key = store_as
-        self._waiting_input_prompt = prompt
-        self._user_input_value = None
-        self._user_input_event.clear()
-        
-        self._emit_message(
-            "⏸ Ожидание пользователя\n"
-            f"{prompt}\n"
-            "Введите ответ в чат, чтобы продолжить."
-        )
-        
-        if timeout is not None:
-            try:
-                timeout = float(timeout)
-            except Exception:
-                timeout = None
-        
-        if timeout and timeout > 0:
-            self._user_input_event.wait(timeout=timeout)
-        else:
-            while not self.stop_requested and not self._user_input_event.is_set():
-                self._user_input_event.wait(timeout=0.2)
-        
-        self.waiting_for_user = False
-        
-        if self.stop_requested:
-            return False
-        
-        if self._user_input_value is None and timeout:
-            if self.error_callback:
-                self.error_callback("Время ожидания ответа пользователя истекло")
-            return False
-        
-        return True
         
         # Извлекаем контекст (вопрос/описание)
         context_text = step.get('context_text')
@@ -713,6 +671,48 @@ class ScenarioExecutor:
             if self.error_callback:
                 self.error_callback(error_msg)
             return False
+
+    def _execute_wait_user(self, step: Dict[str, Any]) -> bool:
+        """Ожидание пользовательского ввода через чат."""
+        prompt = step.get('message', 'Ожидается ввод пользователя.')
+        store_as = step.get('store_as')
+        timeout = step.get('timeout')
+        
+        self.waiting_for_user = True
+        self._waiting_input_key = store_as
+        self._waiting_input_prompt = prompt
+        self._user_input_value = None
+        self._user_input_event.clear()
+        
+        self._emit_message(
+            "⏸ Ожидание пользователя\n"
+            f"{prompt}\n"
+            "Введите ответ в чат, чтобы продолжить."
+        )
+        
+        if timeout is not None:
+            try:
+                timeout = float(timeout)
+            except Exception:
+                timeout = None
+        
+        if timeout and timeout > 0:
+            self._user_input_event.wait(timeout=timeout)
+        else:
+            while not self.stop_requested and not self._user_input_event.is_set():
+                self._user_input_event.wait(timeout=0.2)
+        
+        self.waiting_for_user = False
+        
+        if self.stop_requested:
+            return False
+        
+        if self._user_input_value is None and timeout:
+            if self.error_callback:
+                self.error_callback("Время ожидания ответа пользователя истекло")
+            return False
+        
+        return True
     
     def _try_fallback_to_direct(self, step: Dict[str, Any], ai_error: str) -> bool:
         """
