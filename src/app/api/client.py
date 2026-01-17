@@ -187,6 +187,20 @@ class APIClient:
     def get_profile(self) -> Optional[Dict]:
         """Получить профиль текущего пользователя"""
         return self._request("GET", "/api/auth/me")
+
+    def change_password(
+        self,
+        current_password: str,
+        new_password: str,
+        confirm_password: str,
+    ) -> Optional[Dict]:
+        """Сменить пароль текущего пользователя"""
+        data = {
+            "current_password": current_password,
+            "new_password": new_password,
+            "confirm_password": confirm_password,
+        }
+        return self._request("POST", "/api/auth/change-password", json=data)
     
     # ========== HEALTH CHECK ==========
     

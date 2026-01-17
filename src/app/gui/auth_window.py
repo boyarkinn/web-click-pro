@@ -3,6 +3,7 @@
 """
 
 import os
+from pathlib import Path
 
 try:
     import customtkinter as ctk
@@ -19,28 +20,52 @@ from app.api.client import APIClient
 class AuthWindow:
     """Окно авторизации перед запуском приложения"""
 
-    def __init__(self):
+    def __init__(self, parent=None):
         self.api = APIClient()
         self.success = False
         self.user = None
         self.token = None
+        self.remember_me_var = None
+        self.parent = parent
 
         if USE_CUSTOM_TKINTER:
             ctk.set_appearance_mode("dark")
             ctk.set_default_color_theme("blue")
-            self.root = ctk.CTk()
+            if parent:
+                self.root = ctk.CTkToplevel(parent)
+                self.root.transient(parent)
+            else:
+                self.root = ctk.CTk()
             self.root.title("Веб-Кликер Pro — Авторизация")
-            self.root.geometry("460x520")
-            self.root.minsize(420, 480)
+            self.root.geometry("600x700")
+            self.root.minsize(600, 700)
             self.root.configure(fg_color="#0f1115")
+            self.remember_me_var = ctk.BooleanVar(
+                master=self.root,
+                value=bool(os.getenv("API_AUTH_TOKEN")),
+            )
             self._create_widgets()
         else:
-            self.root = tk.Tk()
+            if parent:
+                self.root = tk.Toplevel(parent)
+                self.root.transient(parent)
+            else:
+                self.root = tk.Tk()
             self.root.title("Веб-Кликер Pro — Авторизация")
-            self.root.geometry("460x520")
-            self.root.minsize(420, 480)
+            self.root.geometry("600x700")
+            self.root.minsize(600, 700)
             self.root.configure(bg="#0f1115")
+            self.remember_me_var = tk.BooleanVar(
+                master=self.root,
+                value=bool(os.getenv("API_AUTH_TOKEN")),
+            )
             self._create_widgets_tkinter()
+
+        if parent:
+            try:
+                self.root.grab_set()
+            except Exception:
+                pass
 
         self._center_window()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -59,6 +84,71 @@ class AuthWindow:
         else:
             label.config(text=message)
 
+    def _create_password_field_ctk(self, parent, placeholder_text: str, height: int = 38):
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        entry = ctk.CTkEntry(frame, placeholder_text=placeholder_text, show="*", height=height)
+        entry.pack(side="left", fill="x", expand=True)
+
+        state = {"visible": False}
+
+        def toggle():
+            state["visible"] = not state["visible"]
+            entry.configure(show="" if state["visible"] else "*")
+            toggle_btn.configure(text="🙈" if state["visible"] else "👁")
+
+        toggle_btn = ctk.CTkButton(
+            frame,
+            text="👁",
+            width=36,
+            height=height,
+            corner_radius=8,
+            fg_color="#1f2937",
+            hover_color="#273244",
+            command=toggle,
+        )
+        toggle_btn.pack(side="right", padx=(8, 0))
+        return frame, entry
+
+    def _create_password_field_tk(self, parent):
+        frame = tk.Frame(parent, bg="#0f1115")
+        entry = tk.Entry(frame, show="*")
+        entry.pack(side="left", fill="x", expand=True)
+
+        state = {"visible": False}
+
+        def toggle():
+            state["visible"] = not state["visible"]
+            entry.config(show="" if state["visible"] else "*")
+            toggle_btn.config(text="🙈" if state["visible"] else "👁")
+
+        toggle_btn = tk.Button(
+            frame,
+            text="👁",
+            width=2,
+            command=toggle,
+            bg="#1f2937",
+            fg="#f8fafc",
+            activebackground="#273244",
+            activeforeground="#f8fafc",
+            relief="flat",
+            cursor="hand2",
+        )
+        toggle_btn.pack(side="right", padx=(8, 0))
+        return frame, entry
+
+    def _get_env_path(self) -> Path:
+        return Path(__file__).resolve().parents[3] / ".env"
+
+    def _persist_token(self, token: str | None) -> None:
+        env_path = self._get_env_path()
+        lines: list[str] = []
+        if env_path.exists():
+            lines = env_path.read_text(encoding="utf-8").splitlines()
+        filtered = [line for line in lines if not line.startswith("API_AUTH_TOKEN=")]
+        if token:
+            filtered.append(f"API_AUTH_TOKEN={token}")
+        env_path.write_text("\n".join(filtered) + ("\n" if filtered else ""), encoding="utf-8")
+
     def _complete_login(self, result: dict):
         token = result.get("token")
         if not token:
@@ -66,6 +156,10 @@ class AuthWindow:
         self.token = token
         self.user = result.get("user")
         os.environ["API_AUTH_TOKEN"] = token
+        if self.remember_me_var and self.remember_me_var.get():
+            self._persist_token(token)
+        else:
+            self._persist_token(None)
         self.success = True
         self.root.destroy()
 
@@ -142,13 +236,12 @@ class AuthWindow:
         )
         self.login_identifier_entry.pack(pady=(22, 10), padx=16, fill="x")
 
-        self.login_password_entry = ctk.CTkEntry(
+        login_password_frame, self.login_password_entry = self._create_password_field_ctk(
             login_tab,
             placeholder_text="Пароль",
-            show="*",
             height=38,
         )
-        self.login_password_entry.pack(pady=(0, 10), padx=16, fill="x")
+        login_password_frame.pack(pady=(0, 10), padx=16, fill="x")
 
         self.login_error_label = ctk.CTkLabel(
             login_tab,
@@ -157,6 +250,16 @@ class AuthWindow:
             font=ctk.CTkFont(size=12),
         )
         self.login_error_label.pack(pady=(0, 6))
+
+        remember_checkbox = ctk.CTkCheckBox(
+            login_tab,
+            text="Запомнить меня",
+            text_color="#cbd5f5",
+            checkbox_width=20,
+            checkbox_height=20,
+            variable=self.remember_me_var,
+        )
+        remember_checkbox.pack(pady=(0, 10))
 
         login_button = ctk.CTkButton(
             login_tab,
@@ -184,21 +287,19 @@ class AuthWindow:
         )
         self.reg_email_entry.pack(pady=(0, 10), padx=16, fill="x")
 
-        self.reg_password_entry = ctk.CTkEntry(
+        reg_password_frame, self.reg_password_entry = self._create_password_field_ctk(
             register_tab,
             placeholder_text="Пароль",
-            show="*",
             height=38,
         )
-        self.reg_password_entry.pack(pady=(0, 10), padx=16, fill="x")
+        reg_password_frame.pack(pady=(0, 10), padx=16, fill="x")
 
-        self.reg_confirm_entry = ctk.CTkEntry(
+        reg_confirm_frame, self.reg_confirm_entry = self._create_password_field_ctk(
             register_tab,
             placeholder_text="Подтвердите пароль",
-            show="*",
             height=38,
         )
-        self.reg_confirm_entry.pack(pady=(0, 10), padx=16, fill="x")
+        reg_confirm_frame.pack(pady=(0, 10), padx=16, fill="x")
 
         self.register_error_label = ctk.CTkLabel(
             register_tab,
@@ -256,11 +357,22 @@ class AuthWindow:
         self.login_identifier_entry.pack(pady=(0, 10), padx=16, fill="x")
 
         tk.Label(login_tab, text="Пароль", bg="#0f1115", fg="#f8fafc").pack(pady=(0, 4))
-        self.login_password_entry = tk.Entry(login_tab, show="*")
-        self.login_password_entry.pack(pady=(0, 10), padx=16, fill="x")
+        login_password_frame, self.login_password_entry = self._create_password_field_tk(login_tab)
+        login_password_frame.pack(pady=(0, 10), padx=16, fill="x")
 
         self.login_error_label = tk.Label(login_tab, text="", bg="#0f1115", fg="#f87171")
         self.login_error_label.pack(pady=(0, 6))
+
+        tk.Checkbutton(
+            login_tab,
+            text="Запомнить меня",
+            variable=self.remember_me_var,
+            bg="#0f1115",
+            fg="#cbd5f5",
+            activebackground="#0f1115",
+            activeforeground="#cbd5f5",
+            selectcolor="#0f1115",
+        ).pack(pady=(0, 10))
 
         tk.Button(login_tab, text="Войти", command=self._handle_login).pack(pady=(6, 16), padx=16, fill="x")
 
@@ -273,12 +385,12 @@ class AuthWindow:
         self.reg_email_entry.pack(pady=(0, 10), padx=16, fill="x")
 
         tk.Label(register_tab, text="Пароль", bg="#0f1115", fg="#f8fafc").pack(pady=(0, 4))
-        self.reg_password_entry = tk.Entry(register_tab, show="*")
-        self.reg_password_entry.pack(pady=(0, 10), padx=16, fill="x")
+        reg_password_frame, self.reg_password_entry = self._create_password_field_tk(register_tab)
+        reg_password_frame.pack(pady=(0, 10), padx=16, fill="x")
 
         tk.Label(register_tab, text="Подтвердите пароль", bg="#0f1115", fg="#f8fafc").pack(pady=(0, 4))
-        self.reg_confirm_entry = tk.Entry(register_tab, show="*")
-        self.reg_confirm_entry.pack(pady=(0, 10), padx=16, fill="x")
+        reg_confirm_frame, self.reg_confirm_entry = self._create_password_field_tk(register_tab)
+        reg_confirm_frame.pack(pady=(0, 10), padx=16, fill="x")
 
         self.register_error_label = tk.Label(register_tab, text="", bg="#0f1115", fg="#f87171")
         self.register_error_label.pack(pady=(0, 6))
@@ -298,5 +410,8 @@ class AuthWindow:
                 self.root.destroy()
 
     def run(self) -> bool:
+        if self.parent:
+            self.root.wait_window()
+            return self.success
         self.root.mainloop()
         return self.success
