@@ -5,7 +5,7 @@
   "rpc_port": 8082,
   "proxy_connections": 1,
   "ton_config_filename": "/opt/web-click-pro/server/cocoon-client/mainnet.cocoon.global.config.json",
-  "owner_address": "UQD-5ZxMgAjqC1rrP969gJxkG3OqRMJ0WfReUCTIXfvbQleN",
+  "owner_address": "UQAL5z68BFZc84tkL-HRL8Q6rKiaMdOxes7BJpPaMxjQflml",
   "root_contract_address": "EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k",
   "node_wallet_key": "lszDf1siAKoZ4mXV4R8OjtxtNfr9PVxaAO8ejYVuGOA=",
   "connect_to_proxy_via": "",

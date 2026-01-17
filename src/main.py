@@ -37,7 +37,13 @@ def main():
     print("Веб-Кликер Pro")
     print("=" * 50)
     print("Запуск GUI...")
-    
+
+    from app.gui.auth_window import AuthWindow
+    auth_window = AuthWindow()
+    if not auth_window.run():
+        print("[INFO] Авторизация отменена")
+        return
+
     # Создание и запуск GUI
     from app.gui.main_window import MainWindow
     app = MainWindow()

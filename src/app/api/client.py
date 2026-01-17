@@ -32,6 +32,21 @@ class APIClient:
             "Content-Type": "application/json",
             "Accept": "application/json"
         })
+        self.auth_token = os.getenv("API_AUTH_TOKEN")
+        if self.auth_token:
+            self.set_auth_token(self.auth_token)
+
+    def set_auth_token(self, token: str) -> None:
+        """Установить токен авторизации"""
+        self.auth_token = token
+        self.session.headers.update({
+            "Authorization": f"Bearer {token}"
+        })
+
+    def clear_auth_token(self) -> None:
+        """Сбросить токен авторизации"""
+        self.auth_token = None
+        self.session.headers.pop("Authorization", None)
     
     def _request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
         """
@@ -136,6 +151,42 @@ class APIClient:
         """Удалить задачу"""
         result = self._request("DELETE", f"/api/tasks/{task_id}")
         return result is not None
+
+    # ========== AUTH ==========
+
+    def register_user(
+        self,
+        login: str,
+        email: str,
+        password: str,
+        confirm_password: str,
+    ) -> Optional[Dict]:
+        """Регистрация нового пользователя"""
+        data = {
+            "login": login,
+            "email": email,
+            "password": password,
+            "confirm_password": confirm_password,
+        }
+        result = self._request("POST", "/api/auth/register", json=data)
+        if result and result.get("token"):
+            self.set_auth_token(result["token"])
+        return result
+
+    def login_user(self, identifier: str, password: str) -> Optional[Dict]:
+        """Вход по логину или почте"""
+        data = {
+            "identifier": identifier,
+            "password": password,
+        }
+        result = self._request("POST", "/api/auth/login", json=data)
+        if result and result.get("token"):
+            self.set_auth_token(result["token"])
+        return result
+
+    def get_profile(self) -> Optional[Dict]:
+        """Получить профиль текущего пользователя"""
+        return self._request("GET", "/api/auth/me")
     
     # ========== HEALTH CHECK ==========
     

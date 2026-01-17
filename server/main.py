@@ -26,6 +26,9 @@ if not os.path.exists(env_path):
     env_path = os.path.join(env_dir, ".env")
 load_dotenv(env_path)
 
+# Авторизация (отдельный модуль)
+from auth import auth_router, get_current_user
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -43,6 +46,9 @@ TASKS: dict[str, dict] = {}
 COCOON_CHAT_MODEL = os.getenv("COCOON_CHAT_MODEL", "Qwen/Qwen3-32B")
 cocoon_client = CocoonClient()
 print(f"[OK] Cocoon клиент инициализирован: {cocoon_client.base_url}")
+
+# Подключаем маршруты авторизации
+app.include_router(auth_router)
 
 
 # Pydantic модели
@@ -86,15 +92,21 @@ class TaskResponse(BaseModel):
 # ========== ACCOUNTS ==========
 
 @app.get("/api/accounts", response_model=List[AccountResponse])
-def get_accounts(skip: int = 0, limit: int = 100):
+def get_accounts(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: dict = Depends(get_current_user),
+):
     """Получить список аккаунтов"""
+    _ = current_user
     accounts = list(ACCOUNTS.values())[skip: skip + limit]
     return [format_account(acc) for acc in accounts]
 
 
 @app.get("/api/accounts/{account_id}", response_model=AccountResponse)
-def get_account(account_id: str):
+def get_account(account_id: str, current_user: dict = Depends(get_current_user)):
     """Получить аккаунт по ID"""
+    _ = current_user
     account = ACCOUNTS.get(account_id)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -102,8 +114,9 @@ def get_account(account_id: str):
 
 
 @app.post("/api/accounts", response_model=AccountResponse)
-def create_account(account: AccountCreate):
+def create_account(account: AccountCreate, current_user: dict = Depends(get_current_user)):
     """Создать новый аккаунт"""
+    _ = current_user
     account_dict = account.dict()
     account_dict["is_active"] = True
     account_dict["created_at"] = datetime.utcnow()
@@ -115,8 +128,13 @@ def create_account(account: AccountCreate):
 
 
 @app.put("/api/accounts/{account_id}", response_model=AccountResponse)
-def update_account(account_id: str, account: AccountCreate):
+def update_account(
+    account_id: str,
+    account: AccountCreate,
+    current_user: dict = Depends(get_current_user),
+):
     """Обновить аккаунт"""
+    _ = current_user
     existing = ACCOUNTS.get(account_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -129,8 +147,9 @@ def update_account(account_id: str, account: AccountCreate):
 
 
 @app.delete("/api/accounts/{account_id}")
-def delete_account(account_id: str):
+def delete_account(account_id: str, current_user: dict = Depends(get_current_user)):
     """Удалить аккаунт"""
+    _ = current_user
     if account_id not in ACCOUNTS:
         raise HTTPException(status_code=404, detail="Account not found")
     ACCOUNTS.pop(account_id, None)
@@ -140,15 +159,21 @@ def delete_account(account_id: str):
 # ========== TASKS ==========
 
 @app.get("/api/tasks", response_model=List[TaskResponse])
-def get_tasks(skip: int = 0, limit: int = 100):
+def get_tasks(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: dict = Depends(get_current_user),
+):
     """Получить список задач"""
+    _ = current_user
     tasks = list(TASKS.values())[skip: skip + limit]
     return [format_task(task) for task in tasks]
 
 
 @app.get("/api/tasks/{task_id}", response_model=TaskResponse)
-def get_task(task_id: str):
+def get_task(task_id: str, current_user: dict = Depends(get_current_user)):
     """Получить задачу по ID"""
+    _ = current_user
     task = TASKS.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -156,8 +181,9 @@ def get_task(task_id: str):
 
 
 @app.post("/api/tasks", response_model=TaskResponse)
-def create_task(task: TaskCreate):
+def create_task(task: TaskCreate, current_user: dict = Depends(get_current_user)):
     """Создать новую задачу"""
+    _ = current_user
     task_dict = task.dict()
     task_dict["is_active"] = True
     task_dict["run_count"] = 0
@@ -170,8 +196,13 @@ def create_task(task: TaskCreate):
 
 
 @app.put("/api/tasks/{task_id}", response_model=TaskResponse)
-def update_task(task_id: str, task: TaskCreate):
+def update_task(
+    task_id: str,
+    task: TaskCreate,
+    current_user: dict = Depends(get_current_user),
+):
     """Обновить задачу"""
+    _ = current_user
     existing = TASKS.get(task_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -184,8 +215,9 @@ def update_task(task_id: str, task: TaskCreate):
 
 
 @app.delete("/api/tasks/{task_id}")
-def delete_task(task_id: str):
+def delete_task(task_id: str, current_user: dict = Depends(get_current_user)):
     """Удалить задачу"""
+    _ = current_user
     if task_id not in TASKS:
         raise HTTPException(status_code=404, detail="Task not found")
     TASKS.pop(task_id, None)
@@ -247,8 +279,9 @@ class ChatResponse(BaseModel):
 
 
 @app.post("/api/ai/chat", response_model=ChatResponse)
-def ai_chat(request: ChatRequest):
+def ai_chat(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """Чат с моделью Cocoon"""
+    _ = current_user
     
     try:
         messages = []
@@ -276,8 +309,9 @@ class AnalyzeImageRequest(BaseModel):
 
 
 @app.post("/api/ai/analyze-image", response_model=ChatResponse)
-def ai_analyze_image(request: AnalyzeImageRequest):
+def ai_analyze_image(request: AnalyzeImageRequest, current_user: dict = Depends(get_current_user)):
     """Анализ изображения пока не поддерживается"""
+    _ = current_user
     raise HTTPException(
         status_code=501,
         detail="Анализ изображений/видео пока не реализован. Используем только чат.",
