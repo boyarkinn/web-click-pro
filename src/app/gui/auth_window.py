@@ -3,7 +3,6 @@
 """
 
 import os
-from pathlib import Path
 
 try:
     import customtkinter as ctk
@@ -15,6 +14,7 @@ except ImportError:
     USE_CUSTOM_TKINTER = False
 
 from app.api.client import APIClient
+from app.core.paths import get_env_path
 
 
 class AuthWindow:
@@ -136,8 +136,8 @@ class AuthWindow:
         toggle_btn.pack(side="right", padx=(8, 0))
         return frame, entry
 
-    def _get_env_path(self) -> Path:
-        return Path(__file__).resolve().parents[3] / ".env"
+    def _get_env_path(self):
+        return get_env_path()
 
     def _persist_token(self, token: str | None) -> None:
         env_path = self._get_env_path()

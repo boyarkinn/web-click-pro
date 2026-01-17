@@ -4,7 +4,8 @@
 
 import logging
 import os
-from pathlib import Path
+
+from app.core.paths import get_env_path
 
 # Настройка логирования
 logging.basicConfig(
@@ -16,7 +17,7 @@ logging.basicConfig(
 
 def _load_env_file() -> None:
     """Загружает переменные окружения из .env в корне проекта, если файл есть."""
-    env_path = Path(__file__).resolve().parents[1] / ".env"
+    env_path = get_env_path()
     if not env_path.exists():
         return
     for line in env_path.read_text(encoding="utf-8").splitlines():

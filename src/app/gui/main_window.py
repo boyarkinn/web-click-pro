@@ -5,7 +5,6 @@
 import sys
 import os
 import time
-from pathlib import Path
 
 # Пробуем использовать CustomTkinter (современный вид)
 try:
@@ -26,6 +25,7 @@ from app.api.client import APIClient
 from tkinter import filedialog
 # Импорт сценариев
 from app.scenarios.parser import ScenarioParser
+from app.core.paths import get_env_path
 
 
 class MainWindow:
@@ -1021,7 +1021,7 @@ class MainWindow:
         self._load_account_profile()
 
     def _persist_auth_token(self, token: str | None) -> None:
-        env_path = Path(__file__).resolve().parents[3] / ".env"
+        env_path = get_env_path()
         lines: list[str] = []
         if env_path.exists():
             lines = env_path.read_text(encoding="utf-8").splitlines()
