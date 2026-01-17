@@ -100,15 +100,15 @@ class MainWindow:
         self.mode_frame = ctk.CTkFrame(self.root)
         self.mode_frame.pack(pady=50, padx=40, fill="x")
         
-        # Кнопка "Кликер"
-        self.clicker_button = ctk.CTkButton(
+        # Кнопка "Запустить сценарий"
+        self.run_scenario_entry_button = ctk.CTkButton(
             self.mode_frame,
-            text="Кликер",
+            text="Запустить сценарий",
             font=ctk.CTkFont(size=18, weight="bold"),
             height=50,
-            command=self._show_clicker_mode
+            command=self._show_scenario_input
         )
-        self.clicker_button.pack(pady=20, padx=40, fill="x")
+        self.run_scenario_entry_button.pack(pady=20, padx=40, fill="x")
         
         # Кнопка "Чат"
         self.chat_button = ctk.CTkButton(
@@ -121,87 +121,6 @@ class MainWindow:
             hover_color="darkgreen"
         )
         self.chat_button.pack(pady=20, padx=40, fill="x")
-        
-        # Фрейм для выбора варианта входа в режим Кликер (скрыт по умолчанию)
-        self.clicker_mode_frame = ctk.CTkFrame(self.root)
-        self.clicker_mode_frame.pack_forget()  # Скрыт по умолчанию
-        
-        # Кнопка "Открыть сайт"
-        self.open_url_button = ctk.CTkButton(
-            self.clicker_mode_frame,
-            text="Открыть сайт",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            height=50,
-            command=self._show_url_input
-        )
-        self.open_url_button.pack(pady=20, padx=40, fill="x")
-        
-        # Кнопка "Запустить сценарий"
-        self.run_scenario_mode_button = ctk.CTkButton(
-            self.clicker_mode_frame,
-            text="Запустить сценарий",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            height=50,
-            command=self._show_scenario_input,
-            fg_color="green",
-            hover_color="darkgreen"
-        )
-        self.run_scenario_mode_button.pack(pady=20, padx=40, fill="x")
-        
-        # Кнопка "Назад"
-        self.clicker_back_button = ctk.CTkButton(
-            self.clicker_mode_frame,
-            text="Назад",
-            font=ctk.CTkFont(size=14),
-            height=35,
-            command=self._show_main_menu,
-            fg_color="gray",
-            hover_color="darkgray"
-        )
-        self.clicker_back_button.pack(pady=(20, 20), padx=40, fill="x")
-        
-        # Фрейм для ввода URL (скрыт по умолчанию)
-        self.url_input_frame = ctk.CTkFrame(self.root)
-        self.url_input_frame.pack_forget()  # Скрыт по умолчанию
-        
-        # Метка для поля ввода
-        url_label = ctk.CTkLabel(
-            self.url_input_frame,
-            text="URL сайта:",
-            font=ctk.CTkFont(size=14)
-        )
-        url_label.pack(pady=(20, 10), padx=20)
-        
-        # Поле ввода URL
-        self.url_entry = ctk.CTkEntry(
-            self.url_input_frame,
-            placeholder_text="https://example.com",
-            font=ctk.CTkFont(size=14),
-            height=40
-        )
-        self.url_entry.pack(pady=10, padx=20, fill="x")
-        
-        # Кнопка открытия сайта
-        self.open_button = ctk.CTkButton(
-            self.url_input_frame,
-            text="Открыть сайт",
-            font=ctk.CTkFont(size=16, weight="bold"),
-            height=40,
-            command=self._open_website
-        )
-        self.open_button.pack(pady=(10, 20), padx=20, fill="x")
-        
-        # Кнопка "Назад"
-        self.url_back_button = ctk.CTkButton(
-            self.url_input_frame,
-            text="Назад",
-            font=ctk.CTkFont(size=14),
-            height=35,
-            command=self._show_clicker_mode,
-            fg_color="gray",
-            hover_color="darkgray"
-        )
-        self.url_back_button.pack(pady=(0, 20), padx=20, fill="x")
         
         # Фрейм для выбора сценария (скрыт по умолчанию)
         self.scenario_input_frame = ctk.CTkFrame(self.root)
@@ -259,7 +178,7 @@ class MainWindow:
             text="Назад",
             font=ctk.CTkFont(size=14),
             height=35,
-            command=self._show_clicker_mode,
+            command=self._show_main_menu,
             fg_color="gray",
             hover_color="darkgray"
         )
@@ -309,10 +228,10 @@ class MainWindow:
         self.mode_frame = tk.Frame(self.root, bg="#2b2b2b")
         self.mode_frame.pack(pady=50, padx=40, fill="x")
         
-        # Кнопка "Кликер"
-        self.clicker_button = tk.Button(
+        # Кнопка "Запустить сценарий"
+        self.run_scenario_entry_button = tk.Button(
             self.mode_frame,
-            text="Кликер",
+            text="Запустить сценарий",
             font=("Arial", 18, "bold"),
             bg="#0078d4",
             fg="white",
@@ -320,9 +239,9 @@ class MainWindow:
             activeforeground="white",
             relief="flat",
             cursor="hand2",
-            command=self._show_clicker_mode
+            command=self._show_scenario_input
         )
-        self.clicker_button.pack(pady=20, padx=40, fill="x", ipady=10)
+        self.run_scenario_entry_button.pack(pady=20, padx=40, fill="x", ipady=10)
         
         # Кнопка "Чат"
         self.chat_button = tk.Button(
@@ -338,110 +257,6 @@ class MainWindow:
             command=self._open_simple_chat
         )
         self.chat_button.pack(pady=20, padx=40, fill="x", ipady=10)
-        
-        # Фрейм для выбора варианта входа в режим Кликер (скрыт по умолчанию)
-        self.clicker_mode_frame = tk.Frame(self.root, bg="#2b2b2b")
-        
-        # Кнопка "Открыть сайт"
-        self.open_url_button = tk.Button(
-            self.clicker_mode_frame,
-            text="Открыть сайт",
-            font=("Arial", 18, "bold"),
-            bg="#0078d4",
-            fg="white",
-            activebackground="#005a9e",
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            command=self._show_url_input
-        )
-        self.open_url_button.pack(pady=20, padx=40, fill="x", ipady=10)
-        
-        # Кнопка "Запустить сценарий"
-        self.run_scenario_mode_button = tk.Button(
-            self.clicker_mode_frame,
-            text="Запустить сценарий",
-            font=("Arial", 18, "bold"),
-            bg="green",
-            fg="white",
-            activebackground="darkgreen",
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            command=self._show_scenario_input
-        )
-        self.run_scenario_mode_button.pack(pady=20, padx=40, fill="x", ipady=10)
-        
-        # Кнопка "Назад"
-        self.clicker_back_button = tk.Button(
-            self.clicker_mode_frame,
-            text="Назад",
-            font=("Arial", 14),
-            bg="gray",
-            fg="white",
-            activebackground="darkgray",
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            command=self._show_main_menu
-        )
-        self.clicker_back_button.pack(pady=(20, 20), padx=40, fill="x", ipady=6)
-        
-        # Фрейм для ввода URL (скрыт по умолчанию)
-        self.url_input_frame = tk.Frame(self.root, bg="#2b2b2b")
-        
-        # Метка для поля ввода
-        url_label = tk.Label(
-            self.url_input_frame,
-            text="URL сайта:",
-            font=("Arial", 14),
-            bg="#2b2b2b",
-            fg="white"
-        )
-        url_label.pack(pady=(20, 10), padx=20)
-        
-        # Поле ввода URL
-        self.url_entry = tk.Entry(
-            self.url_input_frame,
-            font=("Arial", 14),
-            bg="#3b3b3b",
-            fg="white",
-            insertbackground="white",
-            relief="flat",
-            bd=5
-        )
-        self.url_entry.pack(pady=10, padx=20, fill="x", ipady=8)
-        self.url_entry.insert(0, "https://example.com")
-        
-        # Кнопка открытия сайта
-        self.open_button = tk.Button(
-            self.url_input_frame,
-            text="Открыть сайт",
-            font=("Arial", 14, "bold"),
-            bg="#0078d4",
-            fg="white",
-            activebackground="#005a9e",
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            command=self._open_website
-        )
-        self.open_button.pack(pady=(10, 20), padx=20, fill="x", ipady=8)
-        
-        # Кнопка "Назад"
-        self.url_back_button = tk.Button(
-            self.url_input_frame,
-            text="Назад",
-            font=("Arial", 14),
-            bg="gray",
-            fg="white",
-            activebackground="darkgray",
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            command=self._show_clicker_mode
-        )
-        self.url_back_button.pack(pady=(0, 20), padx=20, fill="x", ipady=6)
         
         # Фрейм для выбора сценария (скрыт по умолчанию)
         self.scenario_input_frame = tk.Frame(self.root, bg="#2b2b2b")
@@ -516,7 +331,7 @@ class MainWindow:
             activeforeground="white",
             relief="flat",
             cursor="hand2",
-            command=self._show_clicker_mode
+            command=self._show_main_menu
         )
         self.scenario_back_button.pack(pady=(0, 20), padx=20, fill="x", ipady=6)
         
@@ -542,57 +357,22 @@ class MainWindow:
     
     def _show_main_menu(self):
         """Показать главное меню (кнопки выбора режима)"""
-        # Скрываем все фреймы режима Кликер
+        # Скрываем фреймы сценария
         if USE_CUSTOM_TKINTER:
-            self.clicker_mode_frame.pack_forget()
-            self.url_input_frame.pack_forget()
             self.scenario_input_frame.pack_forget()
         else:
-            self.clicker_mode_frame.pack_forget()
-            self.url_input_frame.pack_forget()
             self.scenario_input_frame.pack_forget()
         # Показываем кнопки режима
         self.mode_frame.pack(pady=50, padx=40, fill="x")
     
-    def _show_clicker_mode(self):
-        """Показать режим Кликер (выбор варианта входа)"""
-        # Скрываем кнопки режима
-        self.mode_frame.pack_forget()
-        # Скрываем все подфреймы
-        if USE_CUSTOM_TKINTER:
-            self.url_input_frame.pack_forget()
-            self.scenario_input_frame.pack_forget()
-        else:
-            self.url_input_frame.pack_forget()
-            self.scenario_input_frame.pack_forget()
-        # Показываем фрейм выбора варианта
-        if USE_CUSTOM_TKINTER:
-            self.clicker_mode_frame.pack(pady=50, padx=40, fill="x")
-        else:
-            self.clicker_mode_frame.pack(pady=50, padx=40, fill="x")
-    
-    def _show_url_input(self):
-        """Показать форму ввода URL"""
-        # Скрываем фрейм выбора варианта и фрейм сценария
-        if USE_CUSTOM_TKINTER:
-            self.clicker_mode_frame.pack_forget()
-            self.scenario_input_frame.pack_forget()
-            self.url_input_frame.pack(pady=40, padx=40, fill="x")
-        else:
-            self.clicker_mode_frame.pack_forget()
-            self.scenario_input_frame.pack_forget()
-            self.url_input_frame.pack(pady=40, padx=40, fill="x")
-    
     def _show_scenario_input(self):
         """Показать форму выбора сценария"""
-        # Скрываем фрейм выбора варианта и фрейм URL
+        # Скрываем главное меню
         if USE_CUSTOM_TKINTER:
-            self.clicker_mode_frame.pack_forget()
-            self.url_input_frame.pack_forget()
+            self.mode_frame.pack_forget()
             self.scenario_input_frame.pack(pady=40, padx=40, fill="x")
         else:
-            self.clicker_mode_frame.pack_forget()
-            self.url_input_frame.pack_forget()
+            self.mode_frame.pack_forget()
             self.scenario_input_frame.pack(pady=40, padx=40, fill="x")
     
     def _open_simple_chat(self):
@@ -601,73 +381,6 @@ class MainWindow:
             self.simple_chat_window = ChatWindow(self.root, clicker=None)
         self.simple_chat_window.show()
     
-    def _open_website(self):
-        """Открытие сайта в браузере"""
-        url = self.url_entry.get().strip()
-        
-        # Проверка на пустой URL
-        if not url:
-            self._update_status("Введите URL сайта", error=True)
-            return
-        
-        # Добавление https:// если отсутствует
-        if not url.startswith(("http://", "https://")):
-            url = "https://" + url
-        
-        # Обновление статуса
-        self._update_status("Запуск браузера...")
-        self.open_button.configure(state="disabled" if USE_CUSTOM_TKINTER else "disabled")
-        
-        try:
-            # Создание кликера
-            if not self.clicker:
-                self.clicker = WebClicker(headless=False)
-            
-            # Запуск браузера
-            if not self.clicker.driver:
-                if not self.clicker.start_browser("chrome"):
-                    self._update_status("Ошибка: не удалось запустить браузер", error=True)
-                    self.open_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
-                    return
-            
-            # Открытие сайта
-            if self.clicker.open_url(url):
-                self._update_status(f"Сайт открыт: {url}", success=True)
-                
-                # Ждем загрузки страницы
-                self.clicker.wait(2)
-                
-                # Создаем или показываем окно чата (передаем clicker для автоматизации)
-                if not self.chat_window:
-                    self.chat_window = ChatWindow(self.root, clicker=self.clicker)
-                else:
-                    # Обновляем clicker в существующем окне чата
-                    self.chat_window.clicker = self.clicker
-                    if self.chat_window.llm_client:
-                        try:
-                            from app.automation.ai_controller import AIController
-                            self.chat_window.ai_controller = AIController(
-                                self.clicker, 
-                                llm_client=self.chat_window.llm_client
-                            )
-                        except:
-                            pass
-                
-                self.chat_window.show()
-            # Убираем главное окно, чтобы не перекрывать браузер
-            try:
-                self.root.iconify()
-            except Exception:
-                pass
-                
-                self._update_status("Готово к работе", success=True)
-            else:
-                self._update_status("Ошибка при открытии сайта", error=True)
-            
-        except Exception as e:
-            self._update_status(f"Ошибка: {str(e)}", error=True)
-        finally:
-            self.open_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
     
     def _select_scenario(self):
         """Выбор файла сценария"""

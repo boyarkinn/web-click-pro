@@ -38,6 +38,9 @@ screenshots/
 # Logs
 *.log
 
+# Scenarios
+scenarios/
+
 # Environment
 .env
 .env.local

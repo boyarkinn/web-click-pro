@@ -4,6 +4,7 @@
 """
 
 import logging
+import threading
 from typing import Dict, Any, Optional, Callable, List
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from .parser import ScenarioParser
@@ -36,6 +37,12 @@ class ScenarioExecutor:
         self.total_steps = 0
         self.current_scenario = None
         self.errors_count = 0
+        self.waiting_for_user = False
+        self._user_input_event = threading.Event()
+        self._user_input_value: Optional[str] = None
+        self._user_inputs: Dict[str, str] = {}
+        self._waiting_input_key: Optional[str] = None
+        self._waiting_input_prompt: Optional[str] = None
         
         # Callbacks для обновления UI
         self.progress_callback: Optional[Callable] = None
@@ -109,6 +116,8 @@ class ScenarioExecutor:
     def stop(self):
         """Остановка выполнения сценария"""
         self.stop_requested = True
+        if self.waiting_for_user:
+            self._user_input_event.set()
     
     def set_progress_callback(self, callback: Callable):
         """Установка callback для обновления прогресса"""
@@ -182,7 +191,8 @@ class ScenarioExecutor:
                 if step['action'] == 'repeat':
                     success = self._execute_repeat(step)
                 else:
-                    success = self._execute_step(step)
+                    resolved_step = self._resolve_step_variables(step)
+                    success = self._execute_step(resolved_step)
                 
                 if success:
                     logger.info(f"Шаг {self.current_step_index} выполнен успешно: {step_description}")
@@ -350,6 +360,10 @@ class ScenarioExecutor:
         
         action = step.get('action')
         
+        # Ожидание пользователя
+        if action == 'wait_user':
+            return self._execute_wait_user(step)
+        
         # Выполнение решения AI по извлеченному контенту
         if action == 'ai_decide':
             return self._execute_ai_decide(step)
@@ -499,6 +513,48 @@ class ScenarioExecutor:
             if self.error_callback:
                 self.error_callback(error_msg)
             return False
+
+    def _execute_wait_user(self, step: Dict[str, Any]) -> bool:
+        """Ожидание пользовательского ввода через чат."""
+        prompt = step.get('message', 'Ожидается ввод пользователя.')
+        store_as = step.get('store_as')
+        timeout = step.get('timeout')
+        
+        self.waiting_for_user = True
+        self._waiting_input_key = store_as
+        self._waiting_input_prompt = prompt
+        self._user_input_value = None
+        self._user_input_event.clear()
+        
+        self._emit_message(
+            "⏸ Ожидание пользователя\n"
+            f"{prompt}\n"
+            "Введите ответ в чат, чтобы продолжить."
+        )
+        
+        if timeout is not None:
+            try:
+                timeout = float(timeout)
+            except Exception:
+                timeout = None
+        
+        if timeout and timeout > 0:
+            self._user_input_event.wait(timeout=timeout)
+        else:
+            while not self.stop_requested and not self._user_input_event.is_set():
+                self._user_input_event.wait(timeout=0.2)
+        
+        self.waiting_for_user = False
+        
+        if self.stop_requested:
+            return False
+        
+        if self._user_input_value is None and timeout:
+            if self.error_callback:
+                self.error_callback("Время ожидания ответа пользователя истекло")
+            return False
+        
+        return True
         
         # Извлекаем контекст (вопрос/описание)
         context_text = step.get('context_text')
@@ -991,6 +1047,11 @@ class ScenarioExecutor:
             if len(prompt) > 50:
                 prompt = prompt[:50] + '...'
             return f"AI решение: {prompt}"
+        elif action == 'wait_user':
+            message = step.get('message', '')
+            if len(message) > 50:
+                message = message[:50] + '...'
+            return f"Ожидание пользователя: {message}"
         else:
             return f"{action}"
 
@@ -1129,3 +1190,42 @@ class ScenarioExecutor:
                 self.message_callback(message)
             except Exception:
                 pass
+
+    def provide_user_input(self, message: str) -> None:
+        """Передает ввод пользователя для продолжения сценария."""
+        if not self.waiting_for_user:
+            return
+        text = (message or "").strip()
+        if not text:
+            text = message or ""
+        self._user_input_value = text
+        self._user_inputs["last_user_input"] = text
+        if self._waiting_input_key:
+            self._user_inputs[self._waiting_input_key] = text
+        self._user_input_event.set()
+
+    def is_waiting_for_user(self) -> bool:
+        """Признак ожидания пользовательского ввода."""
+        return self.waiting_for_user
+
+    def _resolve_step_variables(self, step: Dict[str, Any]) -> Dict[str, Any]:
+        """Подстановка пользовательских значений в шаг сценария."""
+        if not self._user_inputs:
+            return step
+        
+        def replace_value(value: Any) -> Any:
+            if not isinstance(value, str):
+                return value
+            for key, stored in self._user_inputs.items():
+                value = value.replace(f"{{{{{key}}}}}", stored)
+            return value
+        
+        resolved = {}
+        for key, value in step.items():
+            if isinstance(value, dict):
+                resolved[key] = {k: replace_value(v) for k, v in value.items()}
+            elif isinstance(value, list):
+                resolved[key] = [replace_value(item) for item in value]
+            else:
+                resolved[key] = replace_value(value)
+        return resolved

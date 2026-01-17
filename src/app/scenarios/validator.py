@@ -15,7 +15,8 @@ class ScenarioValidator:
         'get_text', 'get_attribute', 'screenshot',
         'ai_analyze',  # Анализ текста/контента через AI
         'ai_decide',   # Решение на основе извлеченного контента
-        'repeat'
+        'repeat',
+        'wait_user'
     ]
     
     # Методы селекторов
@@ -96,6 +97,10 @@ class ScenarioValidator:
         # Валидация действия 'ai_decide'
         if action == 'ai_decide':
             return ScenarioValidator.validate_ai_decide(step)
+        
+        # Валидация действия 'wait_user'
+        if action == 'wait_user':
+            return ScenarioValidator.validate_wait_user(step)
         
         # Валидация обычных действий
         return ScenarioValidator.validate_regular_action(step, action)
@@ -221,6 +226,27 @@ class ScenarioValidator:
         response_format = step.get('response_format')
         if response_format and response_format not in ['index', 'text']:
             return False, "response_format должен быть 'index' или 'text'"
+        
+        return True, None
+    
+    @staticmethod
+    def validate_wait_user(step: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """Валидация шага ожидания пользовательского ввода."""
+        message = step.get('message')
+        if not message or not isinstance(message, str) or not message.strip():
+            return False, "Действие 'wait_user' требует поле 'message' (строка)"
+        
+        if 'store_as' in step:
+            store_as = step['store_as']
+            if not isinstance(store_as, str) or not store_as.strip():
+                return False, "Поле 'store_as' должно быть непустой строкой"
+        
+        if 'timeout' in step:
+            timeout = step['timeout']
+            if not isinstance(timeout, (int, float)):
+                return False, "Поле 'timeout' должно быть числом"
+            if timeout <= 0:
+                return False, "Поле 'timeout' должно быть больше 0"
         
         return True, None
     

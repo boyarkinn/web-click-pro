@@ -341,6 +341,9 @@ class ChatWindow:
         self.input_entry.delete(0, "end")
         self.send_button.configure(state="disabled" if USE_CUSTOM_TKINTER else "disabled")
         
+        if self._handle_user_wait_input(message):
+            return
+        
         # Режим работы зависит от наличия clicker
         if self.clicker and self.ai_controller:
             # Режим автоматизации
@@ -409,6 +412,20 @@ class ChatWindow:
             self._add_message(f"❌ Ошибка: {str(e)}", is_user=False)
         finally:
             self.send_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
+    
+    def _handle_user_wait_input(self, message: str) -> bool:
+        """Передает ввод пользователя сценарному ожиданию, если оно активно."""
+        if not self.scenario_executor or not self.scenario_executor.is_waiting_for_user():
+            return False
+        
+        try:
+            self.scenario_executor.provide_user_input(message)
+            self._add_message("✅ Ответ получен, продолжаю сценарий.", is_user=False)
+        except Exception as e:
+            self._add_message(f"❌ Ошибка передачи ответа: {str(e)}", is_user=False)
+        finally:
+            self.send_button.configure(state="normal" if USE_CUSTOM_TKINTER else "normal")
+        return True
     
     def _load_scenario(self):
         """Загрузка файла сценария через диалог"""
