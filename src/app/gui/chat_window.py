@@ -5,6 +5,7 @@
 import sys
 import os
 import threading
+import re
 from tkinter import filedialog
 
 # Пробуем использовать CustomTkinter
@@ -428,6 +429,12 @@ class ChatWindow:
     
     def _add_message(self, message: str, is_user: bool = False):
         """Добавление сообщения в чат"""
+        if not is_user:
+            cleaned = re.sub(r"<think>.*?</think>", "", message, flags=re.DOTALL | re.IGNORECASE)
+            cleaned_lines = [line for line in cleaned.splitlines() if line.strip()]
+            message = "\n".join(cleaned_lines).strip()
+            if not message:
+                return
         if USE_CUSTOM_TKINTER:
             self.chat_area.insert("end", f"{'Вы' if is_user else 'Система'}: {message}\n\n")
             self.chat_area.see("end")
