@@ -17,6 +17,7 @@ class ScenarioParser:
         'get_text', 'get_attribute', 'screenshot',
         'ai_analyze',  # Анализ текста/контента через AI
         'ai_decide',   # Решение на основе извлеченного контента
+        'click_each',  # Клики по всем найденным элементам
         'repeat',
         'wait_user'
     ]

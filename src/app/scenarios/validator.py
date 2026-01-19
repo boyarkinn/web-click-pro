@@ -15,6 +15,7 @@ class ScenarioValidator:
         'get_text', 'get_attribute', 'screenshot',
         'ai_analyze',  # Анализ текста/контента через AI
         'ai_decide',   # Решение на основе извлеченного контента
+        'click_each',  # Клики по всем найденным элементам
         'repeat',
         'wait_user'
     ]
@@ -98,6 +99,10 @@ class ScenarioValidator:
         if action == 'ai_decide':
             return ScenarioValidator.validate_ai_decide(step)
         
+        # Валидация действия 'click_each'
+        if action == 'click_each':
+            return ScenarioValidator.validate_click_each(step)
+
         # Валидация действия 'wait_user'
         if action == 'wait_user':
             return ScenarioValidator.validate_wait_user(step)
@@ -248,6 +253,53 @@ class ScenarioValidator:
             if timeout <= 0:
                 return False, "Поле 'timeout' должно быть больше 0"
         
+        return True, None
+
+    @staticmethod
+    def validate_click_each(step: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """Валидация шага кликов по всем найденным элементам."""
+        if 'selector' not in step:
+            return False, "Действие 'click_each' требует поле 'selector'"
+        selector = step['selector']
+        if not isinstance(selector, str):
+            return False, "Поле 'selector' должно быть строкой"
+        if not selector.strip():
+            return False, "Поле 'selector' не может быть пустым"
+
+        if 'method' in step:
+            method = step['method']
+            if not isinstance(method, str):
+                return False, "Поле 'method' должно быть строкой"
+            if method not in ScenarioValidator.VALID_METHODS:
+                return False, f"Неизвестный метод селектора: {method}"
+
+        if 'clicks_per_element' in step:
+            clicks_per_element = step['clicks_per_element']
+            if not isinstance(clicks_per_element, int):
+                return False, "Поле 'clicks_per_element' должно быть целым числом"
+            if clicks_per_element < 1:
+                return False, "Поле 'clicks_per_element' должно быть >= 1"
+
+        for field in ['delay_between_clicks', 'delay_between_elements']:
+            if field in step:
+                value = step[field]
+                if not isinstance(value, (int, float)):
+                    return False, f"Поле '{field}' должно быть числом"
+                if value < 0:
+                    return False, f"Поле '{field}' должно быть >= 0"
+
+        if 'visible_only' in step:
+            visible_only = step['visible_only']
+            if not isinstance(visible_only, bool):
+                return False, "Поле 'visible_only' должно быть булевым"
+
+        if 'max_elements' in step:
+            max_elements = step['max_elements']
+            if not isinstance(max_elements, int):
+                return False, "Поле 'max_elements' должно быть целым числом"
+            if max_elements < 1:
+                return False, "Поле 'max_elements' должно быть >= 1"
+
         return True, None
     
     @staticmethod

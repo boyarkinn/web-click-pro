@@ -363,6 +363,10 @@ class ScenarioExecutor:
         # Ожидание пользователя
         if action == 'wait_user':
             return self._execute_wait_user(step)
+
+        # Клик по всем найденным элементам
+        if action == 'click_each':
+            return self._execute_click_each(step)
         
         # Выполнение решения AI по извлеченному контенту
         if action == 'ai_decide':
@@ -713,6 +717,76 @@ class ScenarioExecutor:
             return False
         
         return True
+
+    def _execute_click_each(self, step: Dict[str, Any]) -> bool:
+        """Кликает по всем найденным элементам (по очереди)."""
+        if not self.clicker or not self.clicker.driver:
+            if self.error_callback:
+                self.error_callback("Браузер не запущен")
+            return False
+
+        selector = step.get('selector')
+        method = step.get('method', 'css')
+        clicks_per_element = step.get('clicks_per_element', 1)
+        delay_between_clicks = step.get('delay_between_clicks', 0.2)
+        delay_between_elements = step.get('delay_between_elements', 0.2)
+        visible_only = step.get('visible_only', True)
+        max_elements = step.get('max_elements')
+
+        elements = self._find_elements(selector, method, visible_only=visible_only)
+        if not elements:
+            if self.error_callback:
+                self.error_callback(f"Элементы не найдены: {selector}")
+            return False
+
+        total = len(elements)
+        if isinstance(max_elements, int):
+            total = min(total, max_elements)
+
+        for index in range(total):
+            if self.stop_requested:
+                return False
+
+            # Переизвлекаем список, чтобы избежать stale элементов
+            elements = self._find_elements(selector, method, visible_only=visible_only)
+            if not elements or index >= len(elements):
+                break
+
+            element = elements[index]
+            try:
+                # Прокрутка в центр экрана
+                self.clicker.driver.execute_script(
+                    "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+                    element
+                )
+                self.clicker.wait(0.2)
+            except Exception:
+                pass
+
+            for _ in range(clicks_per_element):
+                try:
+                    element.click()
+                except Exception:
+                    try:
+                        self.clicker.driver.execute_script("arguments[0].click();", element)
+                    except Exception as e:
+                        if self.error_callback:
+                            self.error_callback(f"Ошибка клика по элементу {index + 1}: {str(e)}")
+                        return False
+
+                if delay_between_clicks:
+                    try:
+                        self.clicker.wait(delay_between_clicks)
+                    except Exception:
+                        pass
+
+            if delay_between_elements:
+                try:
+                    self.clicker.wait(delay_between_elements)
+                except Exception:
+                    pass
+
+        return True
     
     def _try_fallback_to_direct(self, step: Dict[str, Any], ai_error: str) -> bool:
         """
@@ -1047,6 +1121,8 @@ class ScenarioExecutor:
             if len(prompt) > 50:
                 prompt = prompt[:50] + '...'
             return f"AI решение: {prompt}"
+        elif action == 'click_each':
+            return f"Клик по всем элементам: {step.get('selector', '')}"
         elif action == 'wait_user':
             message = step.get('message', '')
             if len(message) > 50:
